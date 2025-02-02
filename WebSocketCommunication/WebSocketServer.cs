@@ -1,21 +1,20 @@
 ﻿using System.ComponentModel.Design.Serialization;
 using System.Net;
-using System.Net.WebSockets;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using Connection = System.Net.WebSockets.WebSocket;
 
 namespace WebSocketCommunication
 {
     public class WebSocketServer : IDisposable
     {
 
-        #region Propertiesx
+        #region Properties
         public string DomainName { get; }
 
         public ushort Port { get; }
 
         public bool IsListening => _listener.IsListening;
-
-        public IEnumerable<WebSocket> Connections => _connections.Keys.AsEnumerable();
         #endregion
 
         #region Fields
@@ -23,9 +22,9 @@ namespace WebSocketCommunication
 
         private CancellationTokenSource? _listenerToken;
 
-        private Dictionary<Uri, Func<WebSocket, WebSocketHandler>> _webSocketHandlerMap { get; } = new();
+        private Dictionary<Uri, Func<Connection, WebSocketHandler>> _webSocketHandlerMap { get; } = new();
 
-        private Dictionary<WebSocket, WebSocketHandler> _connections = new();
+        private List<Connection> _connections = [];
         #endregion
 
         #region Public Methods
@@ -37,12 +36,16 @@ namespace WebSocketCommunication
 
         public WebSocketServer(ushort port) : this("localhost", port) { }
 
-        public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler, new()
+        public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
             endpoint = endpoint + (endpoint.EndsWith('/') ? "" : "/");
             string url = $"http://{DomainName}:{Port}/{endpoint}";
             _listener.Prefixes.Add(url);
-            _webSocketHandlerMap.Add(new Uri(url), (WebSocket webSocket) => new TWebSocketHandler());
+            if (typeof(TWebSocketHandler).GetConstructor([typeof(Connection)]) is ConstructorInfo constructor)
+            {
+                _webSocketHandlerMap.Add(new Uri(url), (Connection connection) => (WebSocketHandler)constructor.Invoke([connection]));
+            }
+            else throw new MissingMethodException();
         }
 
         public void Start()
@@ -77,10 +80,12 @@ namespace WebSocketCommunication
                         HttpListenerContext context = await contextTask;
                         if (context.Request.IsWebSocketRequest)
                         {
-                            Func<WebSocketHandler>? handler;
+                            Func<Connection, WebSocketHandler>? handler;
                             if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
                             {
-                                _connections.Add((await context.AcceptWebSocketAsync(null)).WebSocket, handler.Invoke());
+                                Connection connection = (await context.AcceptWebSocketAsync(null)).WebSocket;
+                                _connections.Add(connection);
+                                handler.Invoke(connection);
                             }
                         }
                     }

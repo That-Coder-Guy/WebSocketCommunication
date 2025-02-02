@@ -4,16 +4,17 @@ using System.Linq;
 using System.Runtime.InteropServices.Marshalling;
 using System.Text;
 using System.Threading.Tasks;
+using Connection = System.Net.WebSockets.WebSocket;
 
 namespace WebSocketCommunication
 {
     public abstract class WebSocketHandler
     {
-        private WebSocket _webSocket;
+        private Connection _connection;
 
-        public WebSocketHandler(WebSocket webSocket)
+        internal WebSocketHandler(Connection connection)
         {
-            _webSocket = webSocket;
+            _connection = connection;
         }
     }
 }
