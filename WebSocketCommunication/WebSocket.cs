@@ -16,5 +16,11 @@ namespace WebSocketCommunication
             _socket = socket;
             
         }
+
+        // TODO: Create standard constructor
+        public WebSocket()
+        {
+            
+        }
     }
 }

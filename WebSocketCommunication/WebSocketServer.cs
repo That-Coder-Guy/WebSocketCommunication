@@ -1,12 +1,11 @@
-﻿using System.ComponentModel.Design.Serialization;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Connection = System.Net.WebSockets.WebSocket;
 
 namespace WebSocketCommunication
 {
-    public class WebSocketServer : IDisposable
+    public class WebSocketServer
     {
 
         #region Properties
@@ -20,7 +19,7 @@ namespace WebSocketCommunication
         #region Fields
         private HttpListener _listener = new HttpListener();
 
-        private CancellationTokenSource? _listenerToken;
+        private Task? _listenerTask;
 
         private Dictionary<Uri, Func<Connection, WebSocketHandler>> _webSocketHandlerMap { get; } = new();
 
@@ -51,63 +50,62 @@ namespace WebSocketCommunication
         public void Start()
         {
             _listener.Start();
-            Listen();
+            _listenerTask = Task.Run(ListenAsync);
         }
 
         public void Stop()
         {
-            Deafen();
             _listener.Stop();
-        }
-
-        public void Dispose()
-        {
-            Deafen();
-            _listener.Close();
+            _listenerTask?.Wait();
+            // TODO: Close all open WebSocket connections
         }
         #endregion
 
         #region Private Methods
-        private async Task ListenAsync(CancellationToken token)
+        private async Task ListenAsync()
         {
-            while (!token.IsCancellationRequested)
+            while (_listener.IsListening)
             {
                 try
                 {
-                    Task? completedTask = await Task.WhenAny(_listener.GetContextAsync(), Task.Delay(-1, token));
-                    if (completedTask is Task<HttpListenerContext> contextTask)
+                    // Wait for an HTTP request.
+                    HttpListenerContext context = await _listener.GetContextAsync();
+
+                    // Process request
+                    if (context.Request.IsWebSocketRequest)
                     {
-                        HttpListenerContext context = await contextTask;
-                        if (context.Request.IsWebSocketRequest)
+                        // Upgrade connection type from HTTP to WebSocket.
+                        Func<Connection, WebSocketHandler>? handler;
+                        if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
                         {
-                            Func<Connection, WebSocketHandler>? handler;
-                            if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
-                            {
-                                Connection connection = (await context.AcceptWebSocketAsync(null)).WebSocket;
-                                _connections.Add(connection);
-                                handler.Invoke(connection);
-                            }
+                            // Accept web socket connection
+                            Connection connection = (await context.AcceptWebSocketAsync(null)).WebSocket;
+                            _connections.Add(connection);
+                            handler.Invoke(connection);
+                        }
+                        else
+                        {
+                            // Deny requests sent to unsupported endpoints.
+                            context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                            context.Response.StatusDescription = "Method Not Allowed";
+                            context.Response.Close();  // Close the connection
                         }
                     }
+                    else
+                    {
+                        // Deny all request that are not HTTP to WebSocket upgrade requests.
+                        context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                        context.Response.StatusDescription = "Method Not Allowed";
+                        context.Response.Close();  // Close the connection
+                    }
                 }
-                catch (OperationCanceledException) { /* Listening ended */ }
+                catch (HttpListenerException)
+                {
+                    // Gracefully close the listening process.
+                    Debug.Print("Connection listening process has been terminated");
+                }
             }
-        }
-
-        private void Listen()
-        {
-            _listenerToken = new CancellationTokenSource();
-            Task listenTask = Task.Run(() => ListenAsync(_listenerToken.Token));
-        }
-
-        private void Deafen()
-        {
-            if (_listenerToken != null)
-            {
-                _listenerToken?.Cancel();
-                _listenerToken?.Dispose();
-            }
-        }
+        }  
         #endregion
     }
 }
