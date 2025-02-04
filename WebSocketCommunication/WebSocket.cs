@@ -20,7 +20,7 @@ namespace WebSocketCommunication
         // TODO: Create standard constructor
         public WebSocket()
         {
-            
+            _socket = new Connection()
         }
     }
 }

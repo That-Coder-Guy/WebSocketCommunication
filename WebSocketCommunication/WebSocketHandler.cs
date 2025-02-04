@@ -10,11 +10,11 @@ namespace WebSocketCommunication
 {
     public abstract class WebSocketHandler
     {
-        private Connection _connection;
+        private WebSocket _webSocket;
 
-        internal WebSocketHandler(Connection connection)
+        internal WebSocketHandler(WebSocket webSocket)
         {
-            _connection = connection;
+            _webSocket = webSocket;
         }
     }
 }
