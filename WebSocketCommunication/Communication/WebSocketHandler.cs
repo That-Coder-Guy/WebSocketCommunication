@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Connection = System.Net.WebSockets.WebSocket;
 
-namespace WebSocketCommunication
+namespace WebSocketCommunication.Communication
 {
     public abstract class WebSocketHandler
     {

@@ -3,7 +3,7 @@ using System.Net;
 using System.Reflection;
 //using Connection = System.Net.WebSockets.WebSocket;
 
-namespace WebSocketCommunication
+namespace WebSocketCommunication.Communication
 {
     public class WebSocketServer
     {
@@ -14,8 +14,8 @@ namespace WebSocketCommunication
         public ushort Port { get; }
 
         public bool IsListening => _listener.IsListening;
-        
-        public WebSocketCollection Connections = new();
+
+        public WebSocketManager Connections = new();
         #endregion
 
         #region Fields
@@ -42,7 +42,7 @@ namespace WebSocketCommunication
             _listener.Prefixes.Add(url);
             if (typeof(TWebSocketHandler).GetConstructor([typeof(WebSocket)]) is ConstructorInfo constructor)
             {
-                _webSocketHandlerMap.Add(new Uri(url), (WebSocket webSocket) => (WebSocketHandler)constructor.Invoke([webSocket]));
+                _webSocketHandlerMap.Add(new Uri(url), (webSocket) => (WebSocketHandler)constructor.Invoke([webSocket]));
             }
             else throw new MissingMethodException();
         }
@@ -80,7 +80,7 @@ namespace WebSocketCommunication
                         {
                             // Accept web socket connection
                             WebSocket webSocket = new WebSocket((await context.AcceptWebSocketAsync(null)).WebSocket);
-                            Connections.Add(connection);
+                            // Connections.Add(connection);
                             handler.Invoke(webSocket);
                         }
                         else
@@ -105,7 +105,7 @@ namespace WebSocketCommunication
                     Debug.Print("Connection listening process has been terminated");
                 }
             }
-        }  
+        }
         #endregion
     }
 }
