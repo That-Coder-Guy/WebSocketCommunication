@@ -34,6 +34,14 @@ namespace WebSocketCommunication.Communication
         #endregion
 
         #region Properties
+        public WebSocketState State
+        {
+            get
+            {
+                
+            }
+        }
+
         public uint Id { get; } = NextWebSocketId++;
         #endregion
 
@@ -51,9 +59,17 @@ namespace WebSocketCommunication.Communication
             _webSocket = new ClientWebSocket();
         }
 
-        public async Task BeginConnectAsync()
+        public bool BeginConnect()
         {
+            // If the connection task has never been run or is done running
+            if (_connectionTask == null || _connectionTask.IsCompleted)
+            {
+                // Create a cancellation token for the connection task
+                _connectionToken = new CancellationTokenSource();
 
+                // Start the conenction task
+                _connectionTask = Task.Run(() => ConnectAsync(_connectionToken.Token));
+            }
         }
 
         public async Task ConnectAsync(CancellationToken token)
@@ -78,9 +94,13 @@ namespace WebSocketCommunication.Communication
             else throw new InvalidOperationException();
         }
 
-        public async Task EndConnectAsync()
+        /// <summary>
+        /// Ends connection attempt if currently running
+        /// </summary>
+        /// <returns>Whether the connection process was ended</returns>
+        public bool EndConnect()
         {
-
+            return false;
         }
 
         public void Connect() // Goofy ahh synchronous method
@@ -103,6 +123,7 @@ namespace WebSocketCommunication.Communication
                 _messageListenerTask = Task.Run(() => ListenAsync(_messageListenerToken.Token));
             }
         }
+
         /// <summary>
         /// Listens for messages while the web socket is open.
         /// </summary>
