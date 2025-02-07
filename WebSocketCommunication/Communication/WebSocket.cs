@@ -2,6 +2,7 @@
 using System.Net.WebSockets;
 using WebSocketCommunication.Utilities;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
+using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
 namespace WebSocketCommunication.Communication
 {
@@ -12,7 +13,7 @@ namespace WebSocketCommunication.Communication
 
         private static uint NextWebSocketId = 0u;
 
-        private SystemWebSocket _webSocket;
+        private SystemWebSocket _innerWebSocket;
 
         private Uri? _serverUrl;
 
@@ -34,32 +35,25 @@ namespace WebSocketCommunication.Communication
         #endregion
 
         #region Properties
-        public WebSocketState State
-        {
-            get
-            {
-                
-            }
-        }
+        
+        public WebSocketState State => (WebSocketState)_innerWebSocket.State;
 
         public uint Id { get; } = NextWebSocketId++;
         #endregion
 
         #region Methods
-        /*
         internal WebSocket(SystemWebSocket webSocket)
         {
-            _webSocket = webSocket;
+            _innerWebSocket = webSocket;
         }
-        */
 
         public WebSocket(string url)
         {
             _serverUrl = new Uri(url);
-            _webSocket = new ClientWebSocket();
+            _innerWebSocket = new ClientWebSocket();
         }
 
-        public bool BeginConnect()
+        public void BeginConnect()
         {
             // If the connection task has never been run or is done running
             if (_connectionTask == null || _connectionTask.IsCompleted)
@@ -74,24 +68,31 @@ namespace WebSocketCommunication.Communication
 
         public async Task ConnectAsync(CancellationToken token)
         {
-            if (_serverUrl is Uri url && _webSocket is ClientWebSocket clientWebSocket)
+            if (_serverUrl is Uri url && _innerWebSocket is ClientWebSocket client)
             {
                 try
                 {
-                    await clientWebSocket.ConnectAsync(url, token);
-                    if (clientWebSocket.State == WebSocketState.Open)
+                    await client.ConnectAsync(url, token);
+                    switch (client.State)
                     {
-                        BeginListening();
-                        Connected?.Invoke();
+                        case SystemWebSocketState.Open:
+                            BeginListening();
+                            Connected?.Invoke();
+                            break;
+                        case SystemWebSocketState.Closed:
+                            Disconnected?.Invoke();
+                            break;
+                        default:
+                            Debug.Print($"Unexpected WebSocket State: {client.State}");
+                            break;
                     }
-                    else throw new WebSocketException();
                 }
                 catch (OperationCanceledException)
                 {
-
+                    Debug.Print($"WebSocket listening task has been terminated.");
                 }
             }
-            else throw new InvalidOperationException();
+            else throw new InvalidOperationException("Not a client WebSocket");
         }
 
         /// <summary>
@@ -103,9 +104,14 @@ namespace WebSocketCommunication.Communication
             return false;
         }
 
-        public void Connect() // Goofy ahh synchronous method
+
+        public void Connect()
         {
-            BeginConnectAsync().GetAwaiter().GetResult();
+            BeginConnect();
+            while (_innerWebSocket.State == SystemWebSocketState.Connecting)
+            {
+                Task.Delay(1000).Wait();
+            }
         }
 
         /// <summary>
@@ -137,7 +143,7 @@ namespace WebSocketCommunication.Communication
                 byte[] buffer = new byte[BUFFER_SIZE];
 
                 // Listen while the connection is open
-                while (_webSocket.State == WebSocketState.Open)
+                while (_innerWebSocket.State == SystemWebSocketState.Open)
                 {
                     // Create a memory stream to store the incoming data
                     using (MemoryStream data = new MemoryStream())
@@ -147,7 +153,7 @@ namespace WebSocketCommunication.Communication
                         do
                         {
                             // Wait to receive data for mthe web socket
-                            result = await _webSocket.ReceiveAsync(buffer, token);
+                            result = await _innerWebSocket.ReceiveAsync(buffer, token);
 
                             // Add the buffer to the total data memory stream
                             data.Write(buffer, 0, result.Count);
@@ -171,10 +177,11 @@ namespace WebSocketCommunication.Communication
             }
             finally
             {
+                // TODO: Determine if needed
                 // If the web socket is closing
-                if (_webSocket.State != WebSocketState.Closed)
+                if (_innerWebSocket.State != SystemWebSocketState.Closed)
                 {
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    await _innerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                 }
             }
         }
@@ -204,7 +211,7 @@ namespace WebSocketCommunication.Communication
         public async Task DisconnectAsync()
         {
             EndListening();
-            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            await _innerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
         }
         #endregion
     }
