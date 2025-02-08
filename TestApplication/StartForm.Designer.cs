@@ -28,17 +28,18 @@
         /// </summary>
         private void InitializeComponent()
         {
-            textBox1 = new TextBox();
+            uxNameTextBox = new TextBox();
             label1 = new Label();
             SuspendLayout();
             // 
-            // textBox1
+            // uxNameTextBox
             // 
-            textBox1.Anchor = AnchorStyles.None;
-            textBox1.Location = new Point(80, 44);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(148, 23);
-            textBox1.TabIndex = 0;
+            uxNameTextBox.Anchor = AnchorStyles.None;
+            uxNameTextBox.Location = new Point(80, 44);
+            uxNameTextBox.Name = "uxNameTextBox";
+            uxNameTextBox.Size = new Size(148, 23);
+            uxNameTextBox.TabIndex = 0;
+            uxNameTextBox.KeyDown += NameKeyDown;
             // 
             // label1
             // 
@@ -57,7 +58,7 @@
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(304, 107);
             Controls.Add(label1);
-            Controls.Add(textBox1);
+            Controls.Add(uxNameTextBox);
             Name = "StartForm";
             Text = "StartForm";
             ResumeLayout(false);
@@ -66,7 +67,7 @@
 
         #endregion
 
-        private TextBox textBox1;
+        private TextBox uxNameTextBox;
         private Label label1;
     }
 }

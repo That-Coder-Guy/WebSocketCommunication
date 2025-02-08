@@ -19,11 +19,13 @@ namespace WebSocketCommunication.Communication
         #endregion
 
         #region Fields
+        private delegate WebSocketHandler WebSocketHandlerConstructor(HttpListenerContext context);
+
         private HttpListener _listener = new HttpListener();
 
         private Task? _listenerTask;
 
-        private Dictionary<Uri, Func<WebSocket, WebSocketHandler>> _webSocketHandlerMap { get; } = new();
+        private Dictionary<Uri, WebSocketHandlerConstructor> _webSocketHandlerMap { get; } = new();
         #endregion
 
         #region Public Methods
@@ -40,11 +42,12 @@ namespace WebSocketCommunication.Communication
             endpoint = endpoint + (endpoint.EndsWith('/') ? "" : "/");
             string url = $"http://{DomainName}:{Port}/{endpoint}";
             _listener.Prefixes.Add(url);
-            if (typeof(TWebSocketHandler).GetConstructor([typeof(WebSocket)]) is ConstructorInfo constructor)
+            _webSocketHandlerMap.Add(new Uri(url), (context) =>
             {
-                _webSocketHandlerMap.Add(new Uri(url), (webSocket) => (WebSocketHandler)constructor.Invoke([webSocket]));
-            }
-            else throw new MissingMethodException();
+                WebSocketHandler handler = Activator.CreateInstance<TWebSocketHandler>();
+                Task.Run(() => handler.Start(context));
+                return handler;
+            });
         }
 
         public void Start()
@@ -75,13 +78,13 @@ namespace WebSocketCommunication.Communication
                     if (context.Request.IsWebSocketRequest)
                     {
                         // Upgrade connection type from HTTP to WebSocket.
-                        Func<WebSocket, WebSocketHandler>? handler;
+                        WebSocketHandlerConstructor? handler;
                         if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
                         {
                             // Accept web socket connection
-                            WebSocket webSocket = new WebSocket((await context.AcceptWebSocketAsync(null)).WebSocket);
+                            // WebSocket webSocket = new WebSocket((await context.AcceptWebSocketAsync(null)).WebSocket);
                             // Connections.Add(connection);
-                            handler.Invoke(webSocket);
+                            handler.Invoke(context);
                         }
                         else
                         {

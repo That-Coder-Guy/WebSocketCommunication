@@ -1,149 +1,175 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using System.Net.WebSockets;
+using System.Runtime.InteropServices.Marshalling;
 using WebSocketCommunication.Utilities;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
 namespace WebSocketCommunication.Communication
 {
-    public class WebSocket
+    public abstract class WebSocket<TSource> where TSource : SystemWebSocket
     {
         #region Fields
-        private readonly uint BUFFER_SIZE = 16384;
+        /// <summary>
+        /// The buffer size for reading  and writting messages.
+        /// </summary>
+        protected readonly int MESSAGE_BUFFER_SIZE = 16384; // Prpbably not the best place to put this variable
 
-        private static uint NextWebSocketId = 0u;
+        /// <summary>
+        /// A handle for the asynchronous message listener task.
+        /// </summary>
+        protected Task? _messageListenerTask;
 
-        private SystemWebSocket _innerWebSocket;
+        /// <summary>
+        /// A cancellation token source for canceling the asynchronous message listener task.
+        /// </summary>
+        protected CancellationTokenSource _messageListenerToken = new();
 
-        private Uri? _serverUrl;
+        /// <summary>
+        /// A handle for the asynchronous connection task.
+        /// </summary>
+        protected Task? _connectionTask;
 
-        private Task? _messageListenerTask;
-
-        private CancellationTokenSource _messageListenerToken = new();
-
-        private Task? _connectionTask;
-
-        private CancellationTokenSource _connectionToken = new();
+        /// <summary>
+        /// A cancellation token source for canceling the asynchronous connection task.
+        /// </summary>
+        protected CancellationTokenSource _connectionToken = new();
         #endregion
 
         #region Events
-        public event Action? Connected;
+        /// <summary>
+        /// An event raised when the web socket establishes a connection with a web socket server.
+        /// </summary>
+        public virtual event EventHandler? Connected;
 
-        public event EventHandler<MessageEventArgs>? MessageReceived;
+        /// <summary>
+        /// An event raised when a message is received from a web socket server.
+        /// </summary>
+        public virtual event EventHandler<MessageEventArgs>? MessageReceived;
 
-        public event Action? Disconnected;
+        /// <summary>
+        /// An event raised when the web socket ends a connection with a web socket server.
+        /// </summary>
+        public virtual event EventHandler? Disconnected;
         #endregion
 
         #region Properties
-        
-        public WebSocketState State => (WebSocketState)_innerWebSocket.State;
+        /// <summary>
+        /// The internal web socket implementation being wrapped.
+        /// </summary>
+        protected abstract TSource InnerWebSocket { get; set; }
 
-        public uint Id { get; } = NextWebSocketId++;
+        /// <summary>
+        /// The state of the wrapped web socket.
+        /// </summary>
+        public virtual WebSocketState State => (WebSocketState)InnerWebSocket.State;
         #endregion
 
         #region Methods
-        internal WebSocket(SystemWebSocket webSocket)
-        {
-            _innerWebSocket = webSocket;
-        }
+        protected virtual bool IsTaskRunning(Task? task) => task == null || task.Status != TaskStatus.Running;
 
-        public WebSocket(string url)
+        protected virtual bool CancelTask(Task? task, CancellationTokenSource source)
         {
-            _serverUrl = new Uri(url);
-            _innerWebSocket = new ClientWebSocket();
-        }
-
-        public void BeginConnect()
-        {
-            // If the connection task has never been run or is done running
-            if (_connectionTask == null || _connectionTask.IsCompleted)
+            if (task != null && !task.IsCompleted)
             {
-                // Create a cancellation token for the connection task
-                _connectionToken = new CancellationTokenSource();
-
-                // Start the conenction task
-                _connectionTask = Task.Run(() => ConnectAsync(_connectionToken.Token));
+                source.Cancel();
+                task.Wait();
+                return task.IsCanceled;
             }
-        }
-
-        public async Task ConnectAsync(CancellationToken token)
-        {
-            if (_serverUrl is Uri url && _innerWebSocket is ClientWebSocket client)
-            {
-                try
-                {
-                    await client.ConnectAsync(url, token);
-                    switch (client.State)
-                    {
-                        case SystemWebSocketState.Open:
-                            BeginListening();
-                            Connected?.Invoke();
-                            break;
-                        case SystemWebSocketState.Closed:
-                            Disconnected?.Invoke();
-                            break;
-                        default:
-                            Debug.Print($"Unexpected WebSocket State: {client.State}");
-                            break;
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    Debug.Print($"WebSocket listening task has been terminated.");
-                }
-            }
-            else throw new InvalidOperationException("Not a client WebSocket");
-        }
-
-        /// <summary>
-        /// Ends connection attempt if currently running
-        /// </summary>
-        /// <returns>Whether the connection process was ended</returns>
-        public bool EndConnect()
-        {
             return false;
         }
 
+        /// <summary>
+        /// Calls all methods attached to the Connected event.
+        /// </summary>
+        protected virtual void RaiseConnectedEvent() => Connected?.Invoke(this, EventArgs.Empty);
 
-        public void Connect()
+        /// <summary>
+        /// Calls all methods attached to the MessageReceived event.
+        /// </summary>
+        protected virtual void RaiseMessageRecievedEvent(MessageEventArgs args) => MessageReceived?.Invoke(this, args);
+
+        /// <summary>
+        /// Calls all methods attached to the Disconnected event.
+        /// </summary>
+        protected virtual void RaiseDisconnectedEvent() => Disconnected?.Invoke(this, EventArgs.Empty);
+
+        /// <summary>
+        /// Starts the connection process with a web socket server as an asynchronous operation.
+        /// </summary>
+        /// <param name="token">A cancellation token used to propagate notification that the operation should be canceled.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        protected abstract Task ConnectAsync(CancellationToken token);
+
+        /// <summary>
+        /// Sends a message to the web socket server as an asynchronous operation.
+        /// </summary>
+        /// <param name="message">The bytes of the message to be sent.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        protected virtual async Task SendAsync(byte[] message)
         {
-            BeginConnect();
-            while (_innerWebSocket.State == SystemWebSocketState.Connecting)
+            int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
+
+            for (int i = 0; i < totalChunks; i++)
             {
-                Task.Delay(1000).Wait();
+                // Determine the start and end positions of the chunk
+                int offset = i * MESSAGE_BUFFER_SIZE;
+                int length = Math.Min(MESSAGE_BUFFER_SIZE, message.Length - offset);
+
+                // Create a segment for the current chunk
+                ArraySegment<byte> bufferSegment = new ArraySegment<byte>(message, offset, length);
+
+                // Check if it's the final chunk
+                bool endOfMessage = (i == totalChunks - 1);
+
+                // Send the chunk asynchronously
+                await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
             }
         }
 
         /// <summary>
-        /// Starts message listener thread if it is not already running.
+        /// Sends a message to the web socket server.
         /// </summary>
-        private void BeginListening()
+        /// <param name="message">The bytes of the message to be sent.</param>
+        public virtual void Send(byte[] message)
+        {
+            Task.Run(() => SendAsync(message));
+        }
+
+        /// <summary>
+        /// Starts a message listener thread if it is not already running as an asynchronous operation.
+        /// </summary>
+        /// <returns>Whether the message listening process started.</returns>
+        protected virtual bool BeginListening()
         {
             // If the listening task is not running
-            if (_messageListenerTask == null || _messageListenerTask.IsCompleted)
+            if (!IsTaskRunning(_messageListenerTask))
             {
                 // Create a cancellation token for the listening task
                 _messageListenerToken = new CancellationTokenSource();
 
                 // Start the listening task
                 _messageListenerTask = Task.Run(() => ListenAsync(_messageListenerToken.Token));
+                return true;
             }
+            return false;
         }
 
         /// <summary>
-        /// Listens for messages while the web socket is open.
+        /// Listens for messages while the web socket is open as an asynchronous operation.
         /// </summary>
-        /// <param name="token">The means to cancel the listening task</param>
-        /// <returns>Generic task</returns>
-        public async Task ListenAsync(CancellationToken token)
+        /// <param name="token">A cancellation token used to propagate notification that the operation should be canceled.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        protected virtual async Task ListenAsync(CancellationToken token)
         {
             try
             {
                 // Create a input buffer
-                byte[] buffer = new byte[BUFFER_SIZE];
+                byte[] buffer = new byte[MESSAGE_BUFFER_SIZE];
 
                 // Listen while the connection is open
-                while (_innerWebSocket.State == SystemWebSocketState.Open)
+                while (InnerWebSocket.State == SystemWebSocketState.Open)
                 {
                     // Create a memory stream to store the incoming data
                     using (MemoryStream data = new MemoryStream())
@@ -153,7 +179,7 @@ namespace WebSocketCommunication.Communication
                         do
                         {
                             // Wait to receive data for mthe web socket
-                            result = await _innerWebSocket.ReceiveAsync(buffer, token);
+                            result = await InnerWebSocket.ReceiveAsync(buffer, token);
 
                             // Add the buffer to the total data memory stream
                             data.Write(buffer, 0, result.Count);
@@ -179,9 +205,9 @@ namespace WebSocketCommunication.Communication
             {
                 // TODO: Determine if needed
                 // If the web socket is closing
-                if (_innerWebSocket.State != SystemWebSocketState.Closed)
+                if (InnerWebSocket.State != SystemWebSocketState.Closed)
                 {
-                    await _innerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                 }
             }
         }
@@ -189,29 +215,28 @@ namespace WebSocketCommunication.Communication
         /// <summary>
         /// Stops the message listener thread if it is running.
         /// </summary>
-        private void EndListening()
+        /// <returns>Whether the message listening process ended.</returns>
+        protected virtual bool EndListening()
         {
-            // If the listening task has been started
-            if (_messageListenerTask != null)
-            {
-                // Request cancellation of the listening task
-                _messageListenerToken.Cancel();
-
-                // Wait for listening task to end
-                _messageListenerTask.Wait();
-            }
+            return CancelTask(_messageListenerTask, _messageListenerToken);
         }
 
-
-        public void Disconnect() // Goofy ahh synchronous method
-        {
-            DisconnectAsync().GetAwaiter().GetResult();
-        }
-
-        public async Task DisconnectAsync()
+        /// <summary>
+        /// Ends the web socket connection wht the web socket server as an asynchronous operation.
+        /// </summary>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        public virtual async Task DisconnectAsync()
         {
             EndListening();
-            await _innerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Ends the web socket connection wht the web socket server.
+        /// </summary>
+        public virtual void Disconnect()
+        {
+            DisconnectAsync().GetAwaiter().GetResult();
         }
         #endregion
     }
