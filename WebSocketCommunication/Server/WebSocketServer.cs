@@ -3,7 +3,7 @@ using System.Net;
 using System.Reflection;
 //using Connection = System.Net.WebSockets.WebSocket;
 
-namespace WebSocketCommunication.Communication
+namespace WebSocketCommunication.Server
 {
     public class WebSocketServer
     {

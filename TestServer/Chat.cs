@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using WebSocketCommunication.Communication;
+using WebSocketCommunication.Server;
 using WebSocketCommunication.Utilities;
 
 namespace TestServer

@@ -1,12 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
+using System.Net;
+using WebSocketCommunication.Communication;
 
-namespace WebSocketCommunication.Communication
+namespace WebSocketCommunication.Server
 {
     public class WebSocketManager
     {
         #region Fields
-        private List<WebSocket> _webSockets = new();
+        private List<ServerWebSocket> _webSockets = new();
 
         private Mutex _mutex = new Mutex();
         #endregion
@@ -16,14 +18,17 @@ namespace WebSocketCommunication.Communication
         #endregion
 
         #region Methods
-        public void Add(WebSocket item)
+        internal void Add(HttpListenerContext context)
         {
             _mutex.WaitOne();
+            ServerWebSocket webSocket = new ServerWebSocket(context);
+            webSocket.
+
             _webSockets.Add(item);
             _mutex.ReleaseMutex();
         }
 
-        public bool Remove(WebSocket item)
+        public bool Remove(ServerWebSocket item)
         {
             _mutex.WaitOne();
             bool result = _webSockets.Remove(item);

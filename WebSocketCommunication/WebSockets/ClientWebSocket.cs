@@ -1,10 +1,11 @@
-﻿using System.Net.WebSockets;
-using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
+﻿using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using System.Diagnostics;
-using System.Text;
+using WebSocketCommunication.EventArguments;
+using WebSocketCommunication.Enumerations;
+using System.Net.WebSockets;
 
-namespace WebSocketCommunication.Communication
+namespace WebSocketCommunication.WebSockets
 {
     /// <summary>
     /// Represents a client's web socket connection to a server.
@@ -31,7 +32,7 @@ namespace WebSocketCommunication.Communication
         /// </summary>
         /// <param name="token">A cancellation token used to propagate notification that the operation should be canceled.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        protected async Task ConnectAsync(CancellationToken token)
+        private async Task ConnectAsync(CancellationToken token)
         {
             try
             {
@@ -42,9 +43,6 @@ namespace WebSocketCommunication.Communication
                         BeginListening();
                         RaiseConnectedEvent();
                         break;
-                    case SystemWebSocketState.Closed:
-                        RaiseDisconnectedEvent();
-                        break;
                     default:
                         Debug.Print($"Unexpected WebSocket State: {InnerWebSocket.State}");
                         break;
@@ -53,6 +51,22 @@ namespace WebSocketCommunication.Communication
             catch (OperationCanceledException)
             {
                 Debug.Print($"WebSocket listening task has been terminated.");
+            }
+            catch (WebSocketException exc)
+            {
+                switch (exc.WebSocketErrorCode)
+                {
+                    case WebSocketError.ConnectionClosedPrematurely:
+                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.EndpointUnavailable));
+                        break;
+                    case WebSocketError.NotAWebSocket:
+                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.ProtocolError));
+                        break;
+                    default:
+                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.Empty));
+                        Debug.Print($"{exc}");
+                        break;
+                }
             }
         }
 

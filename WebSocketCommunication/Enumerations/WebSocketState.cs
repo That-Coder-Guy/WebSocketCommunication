@@ -1,4 +1,4 @@
-﻿namespace WebSocketCommunication.Communication
+﻿namespace WebSocketCommunication.Enumerations
 {
     public enum WebSocketState
     {

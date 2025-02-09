@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics;
-using System.Net;
 using System.Net.WebSockets;
-using System.Runtime.InteropServices.Marshalling;
+using WebSocketCommunication.Enumerations;
+using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Utilities;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
-namespace WebSocketCommunication.Communication
+namespace WebSocketCommunication.WebSockets
 {
     public abstract class WebSocket<TSource> where TSource : SystemWebSocket
     {
@@ -51,7 +51,12 @@ namespace WebSocketCommunication.Communication
         /// <summary>
         /// An event raised when the web socket ends a connection with a web socket server.
         /// </summary>
-        public virtual event EventHandler? Disconnected;
+        public virtual event EventHandler<DisconnectEventArgs>? Disconnected;
+
+        /// <summary>
+        /// An event raised when the web socket ends a connection with a web socket server.
+        /// </summary>
+        public virtual event EventHandler<ConnectionFailedEventArgs>? ConnectionFailed;
         #endregion
 
         #region Properties
@@ -93,14 +98,12 @@ namespace WebSocketCommunication.Communication
         /// <summary>
         /// Calls all methods attached to the Disconnected event.
         /// </summary>
-        protected virtual void RaiseDisconnectedEvent() => Disconnected?.Invoke(this, EventArgs.Empty);
+        protected virtual void RaiseDisconnectedEvent(DisconnectEventArgs args) => Disconnected?.Invoke(this, args);
 
         /// <summary>
-        /// Starts the connection process with a web socket server as an asynchronous operation.
+        /// Calls all methods attached to the ConnectionFailed event.
         /// </summary>
-        /// <param name="token">A cancellation token used to propagate notification that the operation should be canceled.</param>
-        /// <returns>The task object representing the asynchronous operation.</returns>
-        protected abstract Task ConnectAsync(CancellationToken token);
+        protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) => ConnectionFailed?.Invoke(this, args);
 
         /// <summary>
         /// Sends a message to the web socket server as an asynchronous operation.
@@ -174,20 +177,29 @@ namespace WebSocketCommunication.Communication
                     // Create a memory stream to store the incoming data
                     using (MemoryStream data = new MemoryStream())
                     {
-                        // Loop to reaceive the full message through the buffer
-                        WebSocketReceiveResult result;
-                        do
+                        // Wait to receive the initial message type and data to determin next steps
+                        WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                        if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            // Wait to receive data for mthe web socket
-                            result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                            // Complete the closure handshake
+                            await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
 
-                            // Add the buffer to the total data memory stream
-                            data.Write(buffer, 0, result.Count);
+                            // Raise the disconnected event
+                            Disconnected?.Invoke(this, new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
                         }
-                        while (!result.EndOfMessage);
+                        else
+                        {
+                            // Read the rest of the message
+                            data.Write(buffer, 0, result.Count);
+                            while (!result.EndOfMessage)
+                            {
+                                result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                                data.Write(buffer, 0, result.Count);
+                            }
 
-                        // Raise the message received event
-                        MessageReceived?.Invoke(this, new MessageEventArgs(data));
+                            // Raise the message received event
+                            MessageReceived?.Invoke(this, new MessageEventArgs(data));
+                        }
                     }
                 }
             }
@@ -195,20 +207,17 @@ namespace WebSocketCommunication.Communication
             {
                 // If the web socket throws an error
                 Debug.Print($"WebSocket error: {ex.Message}");
+
+                // Try to close WebSocket if it's not already closed
+                if (InnerWebSocket.State != SystemWebSocketState.CloseReceived)
+                {
+                    await InnerWebSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Error during communication", CancellationToken.None);
+                }
             }
             catch (OperationCanceledException)
             {
                 // If the listening task is canceled
                 Debug.Print("Listening process canceled.");
-            }
-            finally
-            {
-                // TODO: Determine if needed
-                // If the web socket is closing
-                if (InnerWebSocket.State != SystemWebSocketState.Closed)
-                {
-                    await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-                }
             }
         }
 
