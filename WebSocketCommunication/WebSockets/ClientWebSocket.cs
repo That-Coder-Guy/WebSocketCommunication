@@ -55,7 +55,7 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
-                RaiseDisconnectedEvent(new DisconnectEventArgs(MapErrorToClosureReason((WebSocketError)exc.WebSocketErrorCode)));
+                RaiseDisconnectedEvent(new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
                 Debug.Print($"{exc}");
             }
         }
