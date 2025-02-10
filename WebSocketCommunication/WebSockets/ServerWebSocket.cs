@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.Contracts;
 using System.Net;
 using System.Net.WebSockets;
 using WebSocketCommunication.EventArguments;
@@ -24,6 +25,8 @@ namespace WebSocketCommunication.WebSockets
         #region Methods
         internal ServerWebSocket(HttpListenerContext context)
         {
+            Contract.Requires(context.Request.IsWebSocketRequest);
+
             InnerWebSocket = SystemWebSocket.CreateFromStream(Stream.Null, false, null, TimeSpan.Zero);  // False connection
             _context = context;
         }

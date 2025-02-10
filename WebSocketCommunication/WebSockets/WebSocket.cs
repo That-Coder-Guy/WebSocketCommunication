@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.Contracts;
 using System.Net.WebSockets;
 using System.Runtime.InteropServices.Marshalling;
 using WebSocketCommunication.Enumerations;
@@ -158,6 +159,8 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task SendAsync(byte[] message)
         {
+            Contract.Requires(InnerWebSocket.State == SystemWebSocketState.Open);
+
             int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
 
             for (int i = 0; i < totalChunks; i++)
@@ -212,6 +215,8 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task ListenAsync(CancellationToken token)
         {
+            Contract.Requires(InnerWebSocket.State == SystemWebSocketState.Open);
+
             try
             {
                 // Create a input buffer
@@ -282,6 +287,7 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         public virtual async Task DisconnectAsync()
         {
+            Contract.Requires(InnerWebSocket.State == SystemWebSocketState.Open);
             EndListening();
             await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
         }

@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Reflection;
-//using Connection = System.Net.WebSockets.WebSocket;
 
 namespace WebSocketCommunication.Server
 {
@@ -40,7 +38,7 @@ namespace WebSocketCommunication.Server
         public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
             endpoint = endpoint + (endpoint.EndsWith('/') ? "" : "/");
-            string url = $"http://{DomainName}:{Port}/{endpoint}";
+            string url = $"ws://{DomainName}:{Port}/{endpoint}";
             _listener.Prefixes.Add(url);
             _webSocketHandlerMap.Add(new Uri(url), (context) =>
             {
@@ -60,6 +58,7 @@ namespace WebSocketCommunication.Server
         {
             _listener.Stop();
             _listenerTask?.Wait();
+
             // TODO: Close all open WebSocket connections
         }
         #endregion
