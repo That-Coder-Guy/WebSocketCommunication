@@ -1,11 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Net.WebSockets;
-using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
-using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
+using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -39,19 +37,8 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
-                switch (exc.WebSocketErrorCode)
-                {
-                    case WebSocketError.ConnectionClosedPrematurely:
-                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.EndpointUnavailable));
-                        break;
-                    case WebSocketError.NotAWebSocket:
-                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.ProtocolError));
-                        break;
-                    default:
-                        RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.Empty));
-                        Debug.Print($"{exc}");
-                        break;
-                }
+                RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
+                Debug.Print($"{exc}");
             }
         }
         
