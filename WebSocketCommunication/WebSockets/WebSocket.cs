@@ -75,26 +75,51 @@ namespace WebSocketCommunication.WebSockets
         #endregion
 
         #region Methods
-        protected static WebSocketClosureReason MapErrorToClosureReason(WebSocketError error)
+        /// <summary>
+        /// Maps a WebSocketError to a corresponding WebSocketClosureReason.
+        /// </summary>
+        /// <param name="error">The error to convert.</param>
+        /// <returns>The mapped closure reason.</returns>
+        protected static WebSocketClosureReason GetClosureReason(WebSocketError error)
         {
-            return error switch
+            switch (error)
             {
-                WebSocketError.Success => WebSocketClosureReason.NormalClosure,
-                WebSocketError.InvalidMessageType => WebSocketClosureReason.InvalidMessageType,
-                WebSocketError.Faulted => WebSocketClosureReason.InternalServerError,
-                WebSocketError.NativeError => WebSocketClosureReason.InternalServerError,
-                WebSocketError.NotAWebSocket => WebSocketClosureReason.ProtocolError,
-                WebSocketError.UnsupportedVersion => WebSocketClosureReason.PolicyViolation,
-                WebSocketError.UnsupportedProtocol => WebSocketClosureReason.PolicyViolation,
-                WebSocketError.HeaderError => WebSocketClosureReason.ProtocolError,
-                WebSocketError.ConnectionClosedPrematurely => WebSocketClosureReason.EndpointUnavailable,
-                WebSocketError.InvalidState => WebSocketClosureReason.Empty,
-                _ => WebSocketClosureReason.Empty // Default case
-            };
+                case WebSocketError.Success:
+                    return WebSocketClosureReason.NormalClosure;
+
+                case WebSocketError.InvalidMessageType:
+                    return WebSocketClosureReason.InvalidMessageType;
+
+                case WebSocketError.Faulted:
+                case WebSocketError.NativeError:
+                case WebSocketError.ConnectionClosedPrematurely:
+                case WebSocketError.InvalidState:
+                    return WebSocketClosureReason.InternalServerError;
+
+                case WebSocketError.NotAWebSocket:
+                case WebSocketError.UnsupportedVersion:
+                case WebSocketError.UnsupportedProtocol:
+                case WebSocketError.HeaderError:
+                    return WebSocketClosureReason.ProtocolError;
+
+                default:
+                    return WebSocketClosureReason.InternalServerError;
+            }
         }
 
+        /// <summary>
+        /// Checks the status of a asynchrounous task.
+        /// </summary>
+        /// <param name="task">The task to check.</param>
+        /// <returns>Whether the task is running or not.</returns>
         protected virtual bool IsTaskRunning(Task? task) => task == null || task.Status != TaskStatus.Running;
 
+        /// <summary>
+        /// Handles the termination of an asynchronous task using it's coressponding cancellation token.
+        /// </summary>
+        /// <param name="task">The target asynchronous task.</param>
+        /// <param name="source">The cancellation token source associated with this asynchronous task.</param>
+        /// <returns></returns>
         protected virtual bool CancelTask(Task? task, CancellationTokenSource source)
         {
             if (task != null && !task.IsCompleted)
