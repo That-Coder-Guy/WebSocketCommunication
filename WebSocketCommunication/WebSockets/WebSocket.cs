@@ -1,10 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Net.WebSockets;
+using System.Runtime.InteropServices.Marshalling;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Utilities;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
+using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
+using WebSocketState = WebSocketCommunication.Enumerations.WebSocketState;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -72,6 +75,24 @@ namespace WebSocketCommunication.WebSockets
         #endregion
 
         #region Methods
+        protected static WebSocketClosureReason MapErrorToClosureReason(WebSocketError error)
+        {
+            return error switch
+            {
+                WebSocketError.Success => WebSocketClosureReason.NormalClosure,
+                WebSocketError.InvalidMessageType => WebSocketClosureReason.InvalidMessageType,
+                WebSocketError.Faulted => WebSocketClosureReason.InternalServerError,
+                WebSocketError.NativeError => WebSocketClosureReason.InternalServerError,
+                WebSocketError.NotAWebSocket => WebSocketClosureReason.ProtocolError,
+                WebSocketError.UnsupportedVersion => WebSocketClosureReason.PolicyViolation,
+                WebSocketError.UnsupportedProtocol => WebSocketClosureReason.PolicyViolation,
+                WebSocketError.HeaderError => WebSocketClosureReason.ProtocolError,
+                WebSocketError.ConnectionClosedPrematurely => WebSocketClosureReason.EndpointUnavailable,
+                WebSocketError.InvalidState => WebSocketClosureReason.Empty,
+                _ => WebSocketClosureReason.Empty // Default case
+            };
+        }
+
         protected virtual bool IsTaskRunning(Task? task) => task == null || task.Status != TaskStatus.Running;
 
         protected virtual bool CancelTask(Task? task, CancellationTokenSource source)

@@ -4,11 +4,11 @@ namespace WebSocketCommunication.EventArguments
 {
     public class ConnectionFailedEventArgs
     {
-        public ConnectionFailedReason Reason { get; }
+        public WebSocketError Error { get; }
 
-        public ConnectionFailedEventArgs(ConnectionFailedReason reason)
+        public ConnectionFailedEventArgs(WebSocketError error)
         {
-            Reason = reason;
+            Error = error;
         }
     }
 }
