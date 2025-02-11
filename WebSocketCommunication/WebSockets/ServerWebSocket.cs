@@ -3,12 +3,13 @@ using System.Diagnostics.Contracts;
 using System.Net;
 using System.Net.WebSockets;
 using WebSocketCommunication.EventArguments;
+using WebSocketCommunication.Logging;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
 
 namespace WebSocketCommunication.WebSockets
 {
-    internal class ServerWebSocket : WebSocket<SystemWebSocket>
+    public class ServerWebSocket : WebSocket<SystemWebSocket>
     {
         #region Fields
         private static uint NextWebSocketId = 0u;
@@ -23,10 +24,8 @@ namespace WebSocketCommunication.WebSockets
         #endregion
 
         #region Methods
-        internal ServerWebSocket(HttpListenerContext context)
+        public ServerWebSocket(HttpListenerContext context)
         {
-            Contract.Requires(context.Request.IsWebSocketRequest);
-
             InnerWebSocket = SystemWebSocket.CreateFromStream(Stream.Null, false, null, TimeSpan.Zero);  // False connection
             _context = context;
         }
@@ -35,13 +34,14 @@ namespace WebSocketCommunication.WebSockets
         {
             try
             {
+                Logger.Log("Successfully accepted incoming connection.");
                 InnerWebSocket = (await _context.AcceptWebSocketAsync(null)).WebSocket;
                 RaiseConnectedEvent();
             }
             catch (WebSocketException exc)
             {
+                Logger.Log("Failed to accept incomming connection...");
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
-                Debug.Print($"{exc}");
             }
         }
         

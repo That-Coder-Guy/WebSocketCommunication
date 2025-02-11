@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
 using System.Net;
-using WebSocketCommunication.Communication;
+using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
 {
@@ -20,20 +20,24 @@ namespace WebSocketCommunication.Server
         #region Methods
         internal void Add(HttpListenerContext context)
         {
-            _mutex.WaitOne();
             ServerWebSocket webSocket = new ServerWebSocket(context);
-            webSocket.
-
-            _webSockets.Add(item);
+            webSocket.Disconnected += (s, e) => Remove(webSocket);
+            _mutex.WaitOne();
+            _webSockets.Add(webSocket);
             _mutex.ReleaseMutex();
         }
 
-        public bool Remove(ServerWebSocket item)
+        private bool Remove(ServerWebSocket item)
         {
             _mutex.WaitOne();
             bool result = _webSockets.Remove(item);
             _mutex.ReleaseMutex();
             return result;
+        }
+
+        public void Broadcast(byte[] message)
+        {
+            _webSockets.ForEach(socket => socket.Send(message));
         }
         #endregion
     }

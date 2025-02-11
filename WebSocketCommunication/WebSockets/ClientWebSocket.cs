@@ -4,6 +4,7 @@ using System.Diagnostics;
 using WebSocketCommunication.EventArguments;
 using WebSocketException = System.Net.WebSockets.WebSocketException;
 using WebSocketCommunication.Enumerations;
+using WebSocketCommunication.Logging;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -40,23 +41,24 @@ namespace WebSocketCommunication.WebSockets
                 switch (InnerWebSocket.State)
                 {
                     case SystemWebSocketState.Open:
+                        Logger.Log("Connection succeeded!");
                         BeginListening();
                         RaiseConnectedEvent();
                         break;
                     default:
-                        Debug.Print($"Unexpected WebSocket State: {InnerWebSocket.State}");
+                        Logger.Log($"Unexpected WebSocket state ({InnerWebSocket.State})");
                         await DisconnectAsync();
                         break;
                 }
             }
             catch (OperationCanceledException)
             {
-                Debug.Print($"WebSocket listening task has been terminated.");
+                Logger.Log("Connection attempt cancelled.");
             }
             catch (WebSocketException exc)
             {
+                Logger.Log($"Connection attempt failed with ({exc.WebSocketErrorCode})");
                 RaiseDisconnectedEvent(new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
-                Debug.Print($"{exc}");
             }
         }
 
@@ -69,6 +71,8 @@ namespace WebSocketCommunication.WebSockets
             // If the connection task has never been run or is done running
             if (!IsTaskRunning(_connectionTask))
             {
+                Logger.Log("Attempting to connect to host...");
+
                 // Create a cancellation token for the connection task
                 _connectionToken = new CancellationTokenSource();
 
@@ -85,6 +89,7 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>Whether the connection process was ended.</returns>
         public bool EndConnect()
         {
+            Logger.Log("Cancelling connection attempt...");
             return CancelTask(_connectionTask, _connectionToken);
         }
 

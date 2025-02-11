@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WebSocketCommunication.Utilities
+namespace WebSocketCommunication.EventArguments
 {
     public class MessageEventArgs : EventArgs
     {
