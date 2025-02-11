@@ -1,28 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using WebSocketCommunication.EventArguments;
+﻿using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Server;
+using WebSocketCommunication.WebSockets;
 
 namespace TestServer
 {
     public class Chat : WebSocketHandler
     {
-        public override void OnConnected()
+        protected override void OnConnected(object? sender, EventArgs e)
         {
-            throw new NotImplementedException();
+            
         }
 
-        public override void OnDisconnected()
+        protected override void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e)
         {
-            throw new NotImplementedException();
+            
         }
 
-        public override void OnMessageReceived(object? sender, MessageEventArgs e)
+        protected override void OnDisconnected(object? sender, DisconnectEventArgs e)
         {
-            throw new NotImplementedException();
+            
+        }
+
+        protected override void OnMessageReceived(object? sender, MessageEventArgs e)
+        {
+
         }
     }
 }

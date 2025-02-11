@@ -18,13 +18,14 @@ namespace WebSocketCommunication.Server
         #endregion
 
         #region Methods
-        internal void Add(HttpListenerContext context)
+        internal ServerWebSocket Add(HttpListenerContext context)
         {
             ServerWebSocket webSocket = new ServerWebSocket(context);
             webSocket.Disconnected += (s, e) => Remove(webSocket);
             _mutex.WaitOne();
             _webSockets.Add(webSocket);
             _mutex.ReleaseMutex();
+            return webSocket;
         }
 
         private bool Remove(ServerWebSocket item)
@@ -37,7 +38,9 @@ namespace WebSocketCommunication.Server
 
         public void Broadcast(byte[] message)
         {
+            _mutex.WaitOne();
             _webSockets.ForEach(socket => socket.Send(message));
+            _mutex.ReleaseMutex();
         }
         #endregion
     }

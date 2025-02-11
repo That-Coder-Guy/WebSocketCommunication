@@ -8,12 +8,12 @@ namespace WebSocketCommunication.Server
     {
         private ServerWebSocket? _webSocket;
 
-        protected WebSocketManager Clients { get; } = new WebSocketManager();
+        protected WebSocketManager Clients { get; private set; } = new WebSocketManager();
 
-        internal void Start(HttpListenerContext context)
+        internal void Attach(ServerWebSocket webSocket, WebSocketManager manager)
         {
-            _webSocket = new ServerWebSocket(context);
-
+            _webSocket = webSocket;
+            Clients = manager;
             _webSocket.Connected += OnConnected;
             _webSocket.ConnectionFailed += OnConnectionFailed;
             _webSocket.MessageReceived += OnMessageReceived;

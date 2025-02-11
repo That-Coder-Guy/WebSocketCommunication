@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
 {
@@ -12,8 +13,6 @@ namespace WebSocketCommunication.Server
         public ushort Port { get; }
 
         public bool IsListening => _listener.IsListening;
-
-        public WebSocketManager Connections = new();
         #endregion
 
         #region Fields
@@ -24,6 +23,8 @@ namespace WebSocketCommunication.Server
         private Task? _listenerTask;
 
         private Dictionary<Uri, WebSocketHandlerConstructor> _webSocketHandlerMap { get; } = new();
+
+        private WebSocketManager _connections = new();
         #endregion
 
         #region Public Methods
@@ -38,20 +39,29 @@ namespace WebSocketCommunication.Server
         public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
             endpoint = endpoint + (endpoint.EndsWith('/') ? "" : "/");
-            string url = $"ws://{DomainName}:{Port}/{endpoint}";
+            string url = $"https://{DomainName}:{Port}/{endpoint}";
             _listener.Prefixes.Add(url);
             _webSocketHandlerMap.Add(new Uri(url), (context) =>
             {
+                ServerWebSocket webSocket = _connections.Add(context);
                 WebSocketHandler handler = Activator.CreateInstance<TWebSocketHandler>();
-                Task.Run(() => handler.Start(context));
+                Task.Run(() => handler.Attach(webSocket, _connections));
+                webSocket.AcceptConnection();
                 return handler;
             });
         }
 
         public void Start()
         {
-            _listener.Start();
-            _listenerTask = Task.Run(ListenAsync);
+            try
+            {
+                _listener.Start();
+                _listenerTask = Task.Run(ListenAsync);
+            }
+            catch (HttpListenerException exc)
+            {
+                Debug.Print($"{exc.Message}");
+            }
         }
 
         public void Stop()
