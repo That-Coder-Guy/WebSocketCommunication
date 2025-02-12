@@ -28,12 +28,33 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "ChatForm";
+            button1 = new Button();
+            SuspendLayout();
+            // 
+            // button1
+            // 
+            button1.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            button1.Location = new Point(695, 408);
+            button1.Name = "button1";
+            button1.Size = new Size(84, 30);
+            button1.TabIndex = 0;
+            button1.Text = "End";
+            button1.UseVisualStyleBackColor = true;
+            button1.Click += EndClicked;
+            // 
+            // ChatForm
+            // 
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(800, 450);
+            Controls.Add(button1);
+            Name = "ChatForm";
+            Text = "ChatForm";
+            ResumeLayout(false);
         }
 
         #endregion
+
+        private Button button1;
     }
 }

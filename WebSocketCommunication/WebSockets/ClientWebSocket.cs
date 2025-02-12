@@ -58,7 +58,11 @@ namespace WebSocketCommunication.WebSockets
             catch (WebSocketException exc)
             {
                 Logger.Log($"Connection attempt failed with ({exc.WebSocketErrorCode})");
-                RaiseDisconnectedEvent(new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
+                RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
+            }
+            catch (Exception exc)
+            {
+                Logger.Log($"{exc.Message}");
             }
         }
 
@@ -99,7 +103,7 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>Whether the connection process succeeded.</returns>
         public bool Connect()
         {
-            if (BeginConnect())
+            if (!BeginConnect())
             {
                 Task.Delay(10000).Wait();
                 if (InnerWebSocket.State == SystemWebSocketState.Connecting)

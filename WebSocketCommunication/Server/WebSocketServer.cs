@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using WebSocketCommunication.Logging;
 using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
@@ -38,8 +39,9 @@ namespace WebSocketCommunication.Server
 
         public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
-            endpoint = endpoint + (endpoint.EndsWith('/') ? "" : "/");
-            string url = $"https://{DomainName}:{Port}/{endpoint}";
+            endpoint = (endpoint.StartsWith('/') ? "" : "/") + endpoint + (endpoint.EndsWith('/') ? "" : "/");
+            string url = $"http://{DomainName}:{Port}{endpoint}";
+            Debug.Print(url);
             _listener.Prefixes.Add(url);
             _webSocketHandlerMap.Add(new Uri(url), (context) =>
             {
@@ -80,8 +82,10 @@ namespace WebSocketCommunication.Server
             {
                 try
                 {
+                    Logger.Log("Waiting for Connection...");
                     // Wait for an HTTP request.
                     HttpListenerContext context = await _listener.GetContextAsync();
+                    Logger.Log("Connection attempt found.");
 
                     // Process request
                     if (context.Request.IsWebSocketRequest)

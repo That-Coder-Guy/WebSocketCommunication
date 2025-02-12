@@ -112,7 +112,7 @@ namespace WebSocketCommunication.WebSockets
         /// </summary>
         /// <param name="task">The task to check.</param>
         /// <returns>Whether the task is running or not.</returns>
-        protected virtual bool IsTaskRunning(Task? task) => task == null || task.Status != TaskStatus.Running;
+        protected virtual bool IsTaskRunning(Task? task) => task != null && task.Status == TaskStatus.Running;
 
         /// <summary>
         /// Handles the termination of an asynchronous task using it's coressponding cancellation token.
