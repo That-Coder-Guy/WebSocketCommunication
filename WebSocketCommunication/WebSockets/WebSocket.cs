@@ -216,7 +216,7 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task ListenAsync(CancellationToken token)
         {
-            Logger.Log("Starting to listen for client connections...");
+            Logger.Log("Listening for incoming messages...");
 
             try
             {
@@ -231,13 +231,15 @@ namespace WebSocketCommunication.WebSockets
                     {
                         // Wait to receive the initial message type and data to determin next steps
                         WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                        Logger.Log("Message received!");
+
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
+                            Logger.Log("Disconnection message received.");
                             // Complete the closure handshake
                             await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
 
                             // Raise the disconnected event
-                            Logger.Log("Disconnection message received.");
                             Disconnected?.Invoke(this, new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
                         }
                         else
@@ -292,9 +294,10 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         public virtual async Task DisconnectAsync()
         {
-            Logger.Log("Disconnected from host.");
+            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
             EndListening();
             await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            
         }
 
         /// <summary>

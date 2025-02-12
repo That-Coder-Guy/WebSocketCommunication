@@ -17,7 +17,7 @@ namespace WebSocketCommunication.Server
         #endregion
 
         #region Fields
-        private delegate WebSocketHandler WebSocketHandlerConstructor(HttpListenerContext context);
+        private delegate WebSocketHandler WebSocketHandlerConstructor(ServerWebSocket webSocket);
 
         private HttpListener _listener = new HttpListener();
 
@@ -43,12 +43,10 @@ namespace WebSocketCommunication.Server
             string url = $"http://{DomainName}:{Port}{endpoint}";
             Debug.Print(url);
             _listener.Prefixes.Add(url);
-            _webSocketHandlerMap.Add(new Uri(url), (context) =>
+            _webSocketHandlerMap.Add(new Uri(url), (webSocket) =>
             {
-                ServerWebSocket webSocket = _connections.Add(context);
                 WebSocketHandler handler = Activator.CreateInstance<TWebSocketHandler>();
                 Task.Run(() => handler.Attach(webSocket, _connections));
-                webSocket.AcceptConnection();
                 return handler;
             });
         }
@@ -95,9 +93,9 @@ namespace WebSocketCommunication.Server
                         if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
                         {
                             // Accept web socket connection
-                            // WebSocket webSocket = new WebSocket((await context.AcceptWebSocketAsync(null)).WebSocket);
-                            // Connections.Add(connection);
-                            handler.Invoke(context);
+                            ServerWebSocket webSocket = _connections.Add(context);
+                            handler.Invoke(webSocket);
+                            await webSocket.AcceptConnectionAsync();
                         }
                         else
                         {

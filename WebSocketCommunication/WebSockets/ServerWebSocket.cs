@@ -30,24 +30,30 @@ namespace WebSocketCommunication.WebSockets
             _context = context;
         }
 
-        private async Task AcceptConnectAsync()
+        public async Task AcceptConnectionAsync()
         {
             try
             {
-                Logger.Log("Successfully accepted incoming connection.");
                 InnerWebSocket = (await _context.AcceptWebSocketAsync(null)).WebSocket;
+                Logger.Log("Successfully accepted incoming connection.");
+                BeginListening();
                 RaiseConnectedEvent();
             }
             catch (WebSocketException exc)
             {
-                Logger.Log("Failed to accept incomming connection...");
+                Logger.Log("Failed to accept incoming connection...");
+                Logger.Log($"{exc.Message}");
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
+            }
+            catch (Exception exc)
+            {
+                Logger.Log($"{exc.Message}");
             }
         }
         
         public void AcceptConnection()
         {
-            Task.Run(AcceptConnectAsync);
+            Task.Run(AcceptConnectionAsync);
         }
         #endregion
     }

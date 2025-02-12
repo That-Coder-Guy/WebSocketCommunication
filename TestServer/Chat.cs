@@ -1,6 +1,7 @@
 ﻿using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Server;
 using WebSocketCommunication.WebSockets;
+using WebSocketCommunication.Logging;
 
 namespace TestServer
 {
@@ -13,7 +14,7 @@ namespace TestServer
 
         protected override void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e)
         {
-            
+            Logger.Log($"{e.Error}");
         }
 
         protected override void OnDisconnected(object? sender, DisconnectEventArgs e)
