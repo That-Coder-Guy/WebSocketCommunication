@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.Contracts;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Logging;
@@ -23,11 +21,6 @@ namespace WebSocketCommunication.WebSockets
         /// A handle for the asynchronous message listener task.
         /// </summary>
         protected Task? _messageListenerTask;
-
-        /// <summary>
-        /// A cancellation token source for canceling the asynchronous message listener task.
-        /// </summary>
-        protected CancellationTokenSource _messageListenerToken = new();
 
         /// <summary>
         /// A handle for the asynchronous connection task.
@@ -199,11 +192,8 @@ namespace WebSocketCommunication.WebSockets
             {
                 Logger.Log("Starting message listening process...");
 
-                // Create a cancellation token for the listening task
-                _messageListenerToken = new CancellationTokenSource();
-
                 // Start the listening task
-                _messageListenerTask = Task.Run(() => ListenAsync(_messageListenerToken.Token));
+                _messageListenerTask = Task.Run(() => ListenAsync());
                 return true;
             }
             return false;
@@ -212,35 +202,49 @@ namespace WebSocketCommunication.WebSockets
         /// <summary>
         /// Listens for messages while the web socket is open as an asynchronous operation.
         /// </summary>
-        /// <param name="token">A cancellation token used to propagate notification that the operation should be canceled.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        protected virtual async Task ListenAsync(CancellationToken token)
+        protected virtual async Task ListenAsync()
         {
             Logger.Log("Listening for incoming messages...");
-
             try
             {
                 // Create a input buffer
                 byte[] buffer = new byte[MESSAGE_BUFFER_SIZE];
 
+                // Create message listening loop variable
+                bool connected = true;
+
                 // Listen while the connection is open
-                while (InnerWebSocket.State == SystemWebSocketState.Open)
+                while (connected)
                 {
                     // Create a memory stream to store the incoming data
                     using (MemoryStream data = new MemoryStream())
                     {
                         // Wait to receive the initial message type and data to determin next steps
-                        WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                        WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
                         Logger.Log("Message received!");
 
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            Logger.Log("Disconnection message received.");
-                            // Complete the closure handshake
-                            await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                            Logger.Log($"Disconnection message received. ({InnerWebSocket.State})");
 
+                            // Complete the closure handshake
+                            switch (InnerWebSocket.State)
+                            {
+                                case SystemWebSocketState.Closed:
+                                    Logger.Log("Disconnection handshake reciprocated.");
+                                    break;
+                                case SystemWebSocketState.CloseReceived:
+                                    Logger.Log("Reciprocating disconnection handshake.");
+                                    await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                                    break;
+                            }
+                            
                             // Raise the disconnected event
                             Disconnected?.Invoke(this, new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
+
+                            // End the listening loop
+                            connected = false;
                         }
                         else
                         {
@@ -248,7 +252,7 @@ namespace WebSocketCommunication.WebSockets
                             data.Write(buffer, 0, result.Count);
                             while (!result.EndOfMessage)
                             {
-                                result = await InnerWebSocket.ReceiveAsync(buffer, token);
+                                result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
                                 data.Write(buffer, 0, result.Count);
                             }
 
@@ -271,21 +275,17 @@ namespace WebSocketCommunication.WebSockets
                     Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // If the listening task is canceled
-                Logger.Log("Listening process canceled.");
-            }
+            Logger.Log("Message listening process ended.");
         }
 
         /// <summary>
-        /// Stops the message listener thread if it is running.
+        /// Waits for the message listener thread to end.
         /// </summary>
         /// <returns>Whether the message listening process ended.</returns>
-        protected virtual bool EndListening()
+        protected virtual void EndListening()
         {
-            Logger.Log("Ending message listening process...");
-            return CancelTask(_messageListenerTask, _messageListenerToken);
+            Logger.Log("Waiting for message listening process to end...");
+            _messageListenerTask?.Wait();
         }
 
         /// <summary>
@@ -295,17 +295,18 @@ namespace WebSocketCommunication.WebSockets
         public virtual async Task DisconnectAsync()
         {
             Logger.Log($"Disconnecting... {InnerWebSocket.State}");
+            await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
             EndListening();
-            await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-            
+            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
         }
 
         /// <summary>
-        /// Ends the web socket connection wht the web socket server.
+        /// Ends the web socket connection with the web socket server.
         /// </summary>
         public virtual void Disconnect()
         {
-            DisconnectAsync().GetAwaiter().GetResult();
+            DisconnectAsync().Wait();
         }
         #endregion
     }
