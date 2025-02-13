@@ -11,7 +11,7 @@ namespace WebSocketCommunication.Logging
     {
         public static void Log(string message)
         {
-            Debug.Print($"Thread {Thread.CurrentThread.ManagedThreadId} @ {DateTime.Now} : {message}");
+            Console.WriteLine($"Thread {Thread.CurrentThread.ManagedThreadId} @ {DateTime.Now} : {message}");
         }
     }
 }

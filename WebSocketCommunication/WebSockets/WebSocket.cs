@@ -1,4 +1,5 @@
-﻿using System.Net.WebSockets;
+﻿using System.Diagnostics;
+using System.Net.WebSockets;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Logging;
@@ -282,7 +283,7 @@ namespace WebSocketCommunication.WebSockets
         /// Waits for the message listener thread to end.
         /// </summary>
         /// <returns>Whether the message listening process ended.</returns>
-        protected virtual void EndListening()
+        protected virtual void WaitForListenerToEnd()
         {
             Logger.Log("Waiting for message listening process to end...");
             _messageListenerTask?.Wait();
@@ -295,10 +296,8 @@ namespace WebSocketCommunication.WebSockets
         public virtual async Task DisconnectAsync()
         {
             Logger.Log($"Disconnecting... {InnerWebSocket.State}");
-            await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
-            EndListening();
-            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
+            await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            WaitForListenerToEnd();
         }
 
         /// <summary>
@@ -307,6 +306,7 @@ namespace WebSocketCommunication.WebSockets
         public virtual void Disconnect()
         {
             DisconnectAsync().Wait();
+            Logger.Log($"{InnerWebSocket.State}");
         }
         #endregion
     }
