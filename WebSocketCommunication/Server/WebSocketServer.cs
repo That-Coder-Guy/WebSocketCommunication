@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using WebSocketCommunication.Logging;
 using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
@@ -80,10 +79,8 @@ namespace WebSocketCommunication.Server
             {
                 try
                 {
-                    Logger.Log("Waiting for Connection...");
                     // Wait for an HTTP request.
                     HttpListenerContext context = await _listener.GetContextAsync();
-                    Logger.Log("Connection attempt found.");
 
                     // Process request
                     if (context.Request.IsWebSocketRequest)

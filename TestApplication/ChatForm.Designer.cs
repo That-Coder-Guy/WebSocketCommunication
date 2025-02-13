@@ -28,33 +28,73 @@
         /// </summary>
         private void InitializeComponent()
         {
-            button1 = new Button();
+            uxEndButton = new Button();
+            uxMessageInputBox = new TextBox();
+            uxChatMessages = new ListBox();
+            uxSendButton = new Button();
             SuspendLayout();
             // 
-            // button1
+            // uxEndButton
             // 
-            button1.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            button1.Location = new Point(695, 408);
-            button1.Name = "button1";
-            button1.Size = new Size(84, 30);
-            button1.TabIndex = 0;
-            button1.Text = "End";
-            button1.UseVisualStyleBackColor = true;
-            button1.Click += EndClicked;
+            uxEndButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            uxEndButton.Location = new Point(379, 269);
+            uxEndButton.Name = "uxEndButton";
+            uxEndButton.Size = new Size(84, 30);
+            uxEndButton.TabIndex = 0;
+            uxEndButton.Text = "End";
+            uxEndButton.UseVisualStyleBackColor = true;
+            uxEndButton.Click += OnEndClicked;
+            // 
+            // uxMessageInputBox
+            // 
+            uxMessageInputBox.Location = new Point(63, 221);
+            uxMessageInputBox.Name = "uxMessageInputBox";
+            uxMessageInputBox.Size = new Size(264, 23);
+            uxMessageInputBox.TabIndex = 1;
+            uxMessageInputBox.KeyDown += OnMessageInputKeyDown;
+            // 
+            // uxChatMessages
+            // 
+            uxChatMessages.FormattingEnabled = true;
+            uxChatMessages.ItemHeight = 15;
+            uxChatMessages.Location = new Point(63, 31);
+            uxChatMessages.Name = "uxChatMessages";
+            uxChatMessages.Size = new Size(340, 184);
+            uxChatMessages.TabIndex = 2;
+            // 
+            // uxSendButton
+            // 
+            uxSendButton.Location = new Point(333, 219);
+            uxSendButton.Name = "uxSendButton";
+            uxSendButton.Size = new Size(70, 25);
+            uxSendButton.TabIndex = 3;
+            uxSendButton.Text = "Send";
+            uxSendButton.UseVisualStyleBackColor = true;
+            uxSendButton.Click += OnSendClick;
             // 
             // ChatForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
-            Controls.Add(button1);
+            ClientSize = new Size(484, 311);
+            Controls.Add(uxMessageInputBox);
+            Controls.Add(uxChatMessages);
+            Controls.Add(uxSendButton);
+            Controls.Add(uxEndButton);
+            MaximumSize = new Size(500, 350);
+            MinimumSize = new Size(500, 350);
             Name = "ChatForm";
             Text = "ChatForm";
+            FormClosed += OnClosed;
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
 
-        private Button button1;
+        private Button uxEndButton;
+        private TextBox uxMessageInputBox;
+        private ListBox uxChatMessages;
+        private Button uxSendButton;
     }
 }

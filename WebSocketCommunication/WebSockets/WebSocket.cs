@@ -1,8 +1,6 @@
-﻿using System.Diagnostics;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
-using WebSocketCommunication.Logging;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
@@ -12,13 +10,11 @@ namespace WebSocketCommunication.WebSockets
 {
     public abstract class WebSocket<TSource> where TSource : SystemWebSocket
     {
-
-        // TODO: Double check is these varaibles should be protected or private.
         #region Fields
         /// <summary>
         /// The buffer size for reading  and writting messages.
         /// </summary>
-        protected readonly int MESSAGE_BUFFER_SIZE = 16384; // Prpbably not the best place to put this variable
+        private readonly int MESSAGE_BUFFER_SIZE = 16384; // Prpbably not the best place to put this variable
 
         /// <summary>
         /// A handle for the asynchronous connection task.
@@ -28,12 +24,7 @@ namespace WebSocketCommunication.WebSockets
         /// <summary>
         /// A handle for the asynchronous message listener task.
         /// </summary>
-        protected Task? _messageListenerTask;
-
-        /// <summary>
-        /// A handle for the asynchronous message send task.
-        /// </summary>
-        protected Task? _messageSendTask;
+        private Task? _messageListenerTask;
 
         /// <summary>
         /// A cancellation token source for canceling the asynchronous connection task.
@@ -41,7 +32,7 @@ namespace WebSocketCommunication.WebSockets
         protected CancellationTokenSource _connectionToken = new();
 
         /// <summary>
-        /// TODO: add description
+        /// A semaphore to prevent concurrent sending operations.
         /// </summary>
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
         #endregion
@@ -149,14 +140,13 @@ namespace WebSocketCommunication.WebSockets
         protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) => ConnectionFailed?.Invoke(this, args);
 
         /// <summary>
-        /// Sends a message to the web socket connection as an asynchronous operation.
+        /// Sends a message through the web socket connection as an asynchronous operation.
         /// </summary>
         /// <param name="message">The bytes of the message to be sent.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task SendAsync(byte[] message)
         {
             await _sendLock.WaitAsync();
-            Logger.Log("Sending message to host...");
 
             int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
 
@@ -175,10 +165,13 @@ namespace WebSocketCommunication.WebSockets
                 // Send the chunk asynchronously
                 await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
             }
-
             _sendLock.Release();
         }
 
+        /// <summary>
+        /// Sends through the web socket connection.
+        /// </summary>
+        /// <param name="message"></param>
         public virtual void Send(byte[] message)
         {
             Task.Run(() => SendAsync(message));
@@ -193,8 +186,6 @@ namespace WebSocketCommunication.WebSockets
             // If the listening task is not running
             if (!IsTaskRunning(_messageListenerTask))
             {
-                Logger.Log("Starting message listening process...");
-
                 // Start the listening task
                 _messageListenerTask = Task.Run(ListenAsync);
                 return true;
@@ -208,46 +199,36 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task ListenAsync()
         {
-            Logger.Log("Listening for incoming messages...");
             try
             {
                 // Create a input buffer
                 byte[] buffer = new byte[MESSAGE_BUFFER_SIZE];
 
-                // Create message listening loop variable
-                bool connected = true;
-
                 // Listen while the connection is open
-                while (connected)
+                while (InnerWebSocket.State == SystemWebSocketState.Open)
                 {
                     // Create a memory stream to store the incoming data
                     using (MemoryStream data = new MemoryStream())
                     {
                         // Wait to receive the initial message type and data to determin next steps
                         WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
-                        Logger.Log("Message received!");
 
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            Logger.Log($"Disconnection message received. ({InnerWebSocket.State})");
-
                             // Complete the closure handshake
                             switch (InnerWebSocket.State)
                             {
                                 case SystemWebSocketState.Closed:
-                                    Logger.Log("Disconnection handshake reciprocated.");
+                                    // Disconnection handshake acknowledged
                                     break;
                                 case SystemWebSocketState.CloseReceived:
-                                    Logger.Log("Reciprocating disconnection handshake.");
+                                    // Acknowledging disconnection handshake
                                     await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                                     break;
                             }
                             
                             // Raise the disconnected event
                             Disconnected?.Invoke(this, new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
-
-                            // End the listening loop
-                            connected = false;
                         }
                         else
                         {
@@ -260,7 +241,6 @@ namespace WebSocketCommunication.WebSockets
                             }
 
                             // Raise the message received event
-                            Logger.Log("Message received.");
                             MessageReceived?.Invoke(this, new MessageEventArgs(data));
                         }
                     }
@@ -268,9 +248,6 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
-                // If the web socket throws an error
-                Logger.Log($"WebSocket error occured during message listening: {exc.Message}");
-
                 // Try to close WebSocket if it's not already closed
                 if (InnerWebSocket.State != SystemWebSocketState.CloseReceived)
                 {
@@ -278,7 +255,6 @@ namespace WebSocketCommunication.WebSockets
                     Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
                 }
             }
-            Logger.Log("Message listening process ended.");
         }
 
         /// <summary>
@@ -287,12 +263,10 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         public virtual async Task DisconnectAsync()
         {
-            Logger.Log($"Disconnecting... {InnerWebSocket.State}");
-            await WaitForTaskAsync(_messageSendTask);
+            await _sendLock.WaitAsync();
             await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-
-            Logger.Log("Waiting for message listening process to end...");
             await WaitForTaskAsync(_messageListenerTask);
+            _sendLock.Release();
         }
 
         /// <summary>
