@@ -5,6 +5,7 @@ using WebSocketCommunication.EventArguments;
 using WebSocketException = System.Net.WebSockets.WebSocketException;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.Logging;
+using System.Threading.Tasks;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -94,7 +95,14 @@ namespace WebSocketCommunication.WebSockets
         public bool EndConnect()
         {
             Logger.Log("Cancelling connection attempt...");
-            return CancelTask(_connectionTask, _connectionToken);
+
+            if (_connectionTask != null && _connectionTask.Status == TaskStatus.Running)
+            {
+                _connectionToken.Cancel();
+                _connectionTask.Wait();
+                return _connectionTask.IsCanceled;
+            }
+            return false;
         }
 
         /// <summary>
