@@ -32,10 +32,10 @@ namespace WebSocketCommunication.Server
 
         #region Methods
         /// <summary>
-        /// Adds a web socket connection to be mananged.
+        /// Adds a web socket connection to be mananged as an asynchronous operation.
         /// </summary>
         /// <param name="context">The context handle to the web socket update request to be realized.</param>
-        /// <returns>The relized web socket connections.</returns>
+        /// <returns>The relized web socket connection wrapped in a task.</returns>
         internal async Task<ServerWebSocket> Add(HttpListenerContext context)
         {
             // Create the web socket connection
@@ -57,6 +57,11 @@ namespace WebSocketCommunication.Server
             return webSocket;
         }
 
+        /// <summary>
+        /// Removes a specific web socket connection for the manager as an asynchronous operation.
+        /// </summary>
+        /// <param name="item">The web socket connection to be removed.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
         private async Task Remove(ServerWebSocket item)
         {
             // Obtain the web socket collection access lock.
@@ -69,6 +74,11 @@ namespace WebSocketCommunication.Server
             _webSocketCollectionLock.Release();
         }
 
+        /// <summary>
+        /// Sends a message to all web socket connections in the manager as an asynchronous operation.
+        /// </summary>
+        /// <param name="message">The bytes making up the massage.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
         public async Task BroadcastAsync(byte[] message)
         {
             // Obtain the web socket collection access lock.
@@ -80,6 +90,10 @@ namespace WebSocketCommunication.Server
             _webSocketCollectionLock.Release();
         }
 
+        /// <summary>
+        /// Sends a message to all web socket connections in the manager.
+        /// </summary>
+        /// <param name="message">The bytes making up the massage.</param>
         public void Broadcast(byte[] message)
         {
             Task.Run(() => BroadcastAsync(message));
