@@ -1,10 +1,8 @@
-﻿using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
+﻿using WebSocketException = System.Net.WebSockets.WebSocketException;
+using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
-using System.Diagnostics;
 using WebSocketCommunication.EventArguments;
-using WebSocketException = System.Net.WebSockets.WebSocketException;
 using WebSocketCommunication.Enumerations;
-using System.Threading.Tasks;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -14,6 +12,9 @@ namespace WebSocketCommunication.WebSockets
     public class ClientWebSocket : WebSocket<SystemClientWebSocket>
     {
         #region Fields
+        /// <summary>
+        /// The uniform resource identifier of the server to be connected to.
+        /// </summary>
         private Uri _serverUrl;
         #endregion
 
@@ -22,6 +23,10 @@ namespace WebSocketCommunication.WebSockets
         #endregion
 
         #region Methods
+        /// <summary>
+        /// The ClientWebSocket constructor.
+        /// </summary>
+        /// <param name="url">The URL of the server to connect to.</param>
         public ClientWebSocket(string url)
         {
             _serverUrl = new Uri(url);

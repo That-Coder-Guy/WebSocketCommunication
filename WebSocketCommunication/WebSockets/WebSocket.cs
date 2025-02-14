@@ -14,7 +14,7 @@ namespace WebSocketCommunication.WebSockets
         /// <summary>
         /// The buffer size for reading  and writting messages.
         /// </summary>
-        private readonly int MESSAGE_BUFFER_SIZE = 16384; // Prpbably not the best place to put this variable
+        private readonly int MESSAGE_BUFFER_SIZE = 16384;
 
         /// <summary>
         /// A handle for the asynchronous connection task.
@@ -105,12 +105,17 @@ namespace WebSocketCommunication.WebSockets
         }
 
         /// <summary>
-        /// Checks the status of a asynchrounous task.
+        /// Checks the status of a nullable asynchrounous task.
         /// </summary>
         /// <param name="task">The task to check.</param>
         /// <returns>Whether the task is running or not.</returns>
         protected virtual bool IsTaskRunning(Task? task) => task != null && task.Status == TaskStatus.Running;
 
+        /// <summary>
+        /// Waits for a possibly null task to finish as an asynchrounous task.
+        /// </summary>
+        /// <param name="task">The nullable task.</param>
+        /// <returns>Whether the task is running or not.</returns>
         protected virtual async Task WaitForTaskAsync(Task? task)
         {
             if (task != null && task.Status == TaskStatus.Running)
@@ -120,9 +125,23 @@ namespace WebSocketCommunication.WebSockets
         }
 
         /// <summary>
-        /// Calls all methods attached to the Connected event.
+        /// Attempts to close the web socket connection in response to a WebSocketException as an asynchrounous task.
         /// </summary>
-        protected virtual void RaiseConnectedEvent() => Connected?.Invoke(this, EventArgs.Empty);
+        /// <param name="exc">The WebSocketException that is the reason for he closure.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        protected virtual async Task EmergencyDisconnectAsync(WebSocketException exc)
+        {
+            if (InnerWebSocket.State != SystemWebSocketState.Closed)
+            {
+                await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.InternalServerError, exc.Message, CancellationToken.None);
+                Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
+            }
+        }
+
+    /// <summary>
+    /// Calls all methods attached to the Connected event.
+    /// </summary>
+    protected virtual void RaiseConnectedEvent() => Connected?.Invoke(this, EventArgs.Empty);
 
         /// <summary>
         /// Calls all methods attached to the MessageReceived event.
@@ -146,25 +165,37 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         protected virtual async Task SendAsync(byte[] message)
         {
+            // Obtain the message sending lock
             await _sendLock.WaitAsync();
 
-            int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
-
-            for (int i = 0; i < totalChunks; i++)
+            try
             {
-                // Determine the start and end positions of the chunk
-                int offset = i * MESSAGE_BUFFER_SIZE;
-                int length = Math.Min(MESSAGE_BUFFER_SIZE, message.Length - offset);
+                // Calculate the total number of message chunks
+                int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
 
-                // Create a segment for the current chunk
-                ArraySegment<byte> bufferSegment = new ArraySegment<byte>(message, offset, length);
+                for (int i = 0; i < totalChunks; i++)
+                {
+                    // Determine the start and end positions of the chunk
+                    int offset = i * MESSAGE_BUFFER_SIZE;
+                    int length = Math.Min(MESSAGE_BUFFER_SIZE, message.Length - offset);
 
-                // Check if it's the final chunk
-                bool endOfMessage = (i == totalChunks - 1);
+                    // Create a segment for the current chunk
+                    ArraySegment<byte> bufferSegment = new ArraySegment<byte>(message, offset, length);
 
-                // Send the chunk asynchronously
-                await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                    // Check if it's the final chunk
+                    bool endOfMessage = (i == totalChunks - 1);
+
+                    // Send the chunk asynchronously
+                    await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                }
             }
+            catch (WebSocketException exc)
+            {
+                // Try to close WebSocket if it's not already closed
+                await EmergencyDisconnectAsync(exc);
+            }
+
+            // Release the message sending lock
             _sendLock.Release();
         }
 
@@ -221,6 +252,7 @@ namespace WebSocketCommunication.WebSockets
                                 case SystemWebSocketState.Closed:
                                     // Disconnection handshake acknowledged
                                     break;
+
                                 case SystemWebSocketState.CloseReceived:
                                     // Acknowledging disconnection handshake
                                     await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
@@ -249,11 +281,7 @@ namespace WebSocketCommunication.WebSockets
             catch (WebSocketException exc)
             {
                 // Try to close WebSocket if it's not already closed
-                if (InnerWebSocket.State != SystemWebSocketState.CloseReceived)
-                {
-                    await InnerWebSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Error during communication", CancellationToken.None);
-                    Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
-                }
+                await EmergencyDisconnectAsync(exc);
             }
         }
 
@@ -263,14 +291,21 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         public virtual async Task DisconnectAsync()
         {
+            // Obtain the message sending lock
             await _sendLock.WaitAsync();
+
+            // Initiate the close handshake
             await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            
+            // Wait for the message listening task to receive the closure acknowledgement and end
             await WaitForTaskAsync(_messageListenerTask);
+
+            // Release the message sending lock
             _sendLock.Release();
         }
 
         /// <summary>
-        /// Ends the web socket connection with the web socket server.
+        /// Ends the web socket connection.
         /// </summary>
         public virtual void Disconnect()
         {

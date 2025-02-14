@@ -27,7 +27,7 @@ namespace WebSocketCommunication.Server
         private WebSocketManager _connections = new();
         #endregion
 
-        #region Public Methods
+        #region Public
         public WebSocketServer(string domain, ushort port)
         {
             DomainName = domain;
@@ -67,12 +67,9 @@ namespace WebSocketCommunication.Server
         {
             _listener.Stop();
             _listenerTask?.Wait();
-
-            // TODO: Close all open WebSocket connections
+            _connections.DisconnectAll();
         }
-        #endregion
 
-        #region Private Methods
         private async Task ListenAsync()
         {
             while (_listener.IsListening)
@@ -90,7 +87,7 @@ namespace WebSocketCommunication.Server
                         if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
                         {
                             // Accept web socket connection
-                            ServerWebSocket webSocket = _connections.Add(context);
+                            ServerWebSocket webSocket = await _connections.Add(context);
                             handler.Invoke(webSocket);
                             await webSocket.AcceptConnectionAsync();
                         }
@@ -113,7 +110,6 @@ namespace WebSocketCommunication.Server
                 catch (HttpListenerException)
                 {
                     // Gracefully close the listening process.
-                    Debug.Print("Connection listening process has been terminated");
                 }
             }
         }
