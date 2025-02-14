@@ -41,7 +41,7 @@ namespace WebSocketCommunication.Server
             // Create the web socket connection
             ServerWebSocket webSocket = new ServerWebSocket(context);
 
-            // Obtain the web socket collection access lock.
+            // Obtain the web socket collection access lock
             await _webSocketCollectionLock.WaitAsync();
 
             // Ensure the web socket is removed from the manager apon closure
@@ -50,10 +50,10 @@ namespace WebSocketCommunication.Server
             // Add the web socket connection to the manager
             _webSockets.Add(webSocket);
 
-            // Release the web socket collection access lock.
+            // Release the web socket collection access lock
             _webSocketCollectionLock.Release();
 
-            // Return the realized web socket connection.
+            // Return the realized web socket connection
             return webSocket;
         }
 
@@ -64,13 +64,13 @@ namespace WebSocketCommunication.Server
         /// <returns>The task object representing the asynchronous operation.</returns>
         private async Task Remove(ServerWebSocket item)
         {
-            // Obtain the web socket collection access lock.
+            // Obtain the web socket collection access lock
             await _webSocketCollectionLock.WaitAsync();
 
             // Remove the target web socket
             _webSockets.Remove(item);
 
-            // Release the web socket collection access lock.
+            // Release the web socket collection access lock
             _webSocketCollectionLock.Release();
         }
 
@@ -81,12 +81,12 @@ namespace WebSocketCommunication.Server
         /// <returns>The task object representing the asynchronous operation.</returns>
         public async Task BroadcastAsync(byte[] message)
         {
-            // Obtain the web socket collection access lock.
+            // Obtain the web socket collection access lock
             await _webSocketCollectionLock.WaitAsync();
 
             _webSockets.ForEach(socket => socket.Send(message));
 
-            // Release the web socket collection access lock.
+            // Release the web socket collection access lock
             _webSocketCollectionLock.Release();
         }
 
@@ -100,16 +100,16 @@ namespace WebSocketCommunication.Server
         }
 
         /// <summary>
-        /// Disconnects all the web socket connections in the manager.
+        /// Disconnects all the web socket connections in the manager
         /// </summary>
         public void DisconnectAll()
         {
-            // Obtain the web socket collection access lock.
+            // Obtain the web socket collection access lock
             _webSocketCollectionLock.Wait();
 
             _webSockets.ForEach(socket => socket.Disconnect());
 
-            // Release the web socket collection access lock.
+            // Release the web socket collection access lock
             _webSocketCollectionLock.Release();
         }
         #endregion
