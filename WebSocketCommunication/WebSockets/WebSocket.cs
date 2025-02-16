@@ -137,29 +137,29 @@ namespace WebSocketCommunication.WebSockets
             {
                 await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.InternalServerError, exc.Message, CancellationToken.None);
             }
-            Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
+            RaiseDisconnectedEvent(new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
             Logger.Log($"Emergency disconnect completed");
         }
 
     /// <summary>
     /// Calls all methods attached to the Connected event.
     /// </summary>
-    protected virtual void RaiseConnectedEvent() => Connected?.Invoke(this, EventArgs.Empty);
+    protected virtual void RaiseConnectedEvent() => Task.Run(() => Connected?.Invoke(this, EventArgs.Empty));
 
         /// <summary>
         /// Calls all methods attached to the MessageReceived event.
         /// </summary>
-        protected virtual void RaiseMessageRecievedEvent(MessageEventArgs args) => MessageReceived?.Invoke(this, args);
+        protected virtual void RaiseMessageReceivedEvent(MessageEventArgs args) => Task.Run(() => MessageReceived?.Invoke(this, args));
 
         /// <summary>
         /// Calls all methods attached to the Disconnected event.
         /// </summary>
-        protected virtual void RaiseDisconnectedEvent(DisconnectEventArgs args) => Disconnected?.Invoke(this, args);
+        protected virtual void RaiseDisconnectedEvent(DisconnectEventArgs args) => Task.Run(() => Disconnected?.Invoke(this, args));
 
         /// <summary>
         /// Calls all methods attached to the ConnectionFailed event.
         /// </summary>
-        protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) => ConnectionFailed?.Invoke(this, args);
+        protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) => Task.Run(() => ConnectionFailed?.Invoke(this, args));
 
         /// <summary>
         /// Sends a message through the web socket connection as an asynchronous operation.
@@ -258,7 +258,7 @@ namespace WebSocketCommunication.WebSockets
 
                             // Raise the disconnected event
                             Logger.Log("Raising disconnection event...");
-                            Disconnected?.Invoke(this, new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
+                            RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
                         }
                         else
                         {
@@ -274,7 +274,7 @@ namespace WebSocketCommunication.WebSockets
 
                             // Raise the message received event
                             Logger.Log($"Raising message received event");
-                            MessageReceived?.Invoke(this, new MessageEventArgs(data));
+                            RaiseMessageReceivedEvent(new MessageEventArgs(data));
                         }
                     }
                 }
