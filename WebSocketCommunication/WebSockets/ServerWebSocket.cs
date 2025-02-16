@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using Microsoft.AspNetCore.Http;
+using System.Diagnostics;
+using System.Net;
 using System.Net.WebSockets;
 using WebSocketCommunication.EventArguments;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
@@ -20,7 +22,7 @@ namespace WebSocketCommunication.WebSockets
         /// <summary>
         /// The context handle to the websocket update request.
         /// </summary>
-        private HttpListenerContext _context;
+        private HttpContext _context;
         #endregion
 
         #region Properties
@@ -37,7 +39,7 @@ namespace WebSocketCommunication.WebSockets
         /// The ServerWebSocket constructor.
         /// </summary>
         /// <param name="context">The context handle to the websocket update request being realized.</param>
-        public ServerWebSocket(HttpListenerContext context)
+        public ServerWebSocket(HttpContext context)
         {
             InnerWebSocket = SystemWebSocket.CreateFromStream(Stream.Null, false, null, TimeSpan.Zero);  // False connection
             _context = context;
@@ -52,7 +54,7 @@ namespace WebSocketCommunication.WebSockets
             try
             {
                 // Attempt to accept the connection
-                InnerWebSocket = (await _context.AcceptWebSocketAsync(null)).WebSocket;
+                InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
 
                 // Start the message listening task
                 BeginListening();
@@ -62,7 +64,7 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
-                // In voke the connection fail event if an exception occures
+                // Invoke the connection fail event if an exception occures
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }
         }

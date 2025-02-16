@@ -3,6 +3,7 @@ using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Enumerations;
+using System.Diagnostics;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -60,6 +61,7 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
+                Debug.Print(exc.Message);
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }
         }

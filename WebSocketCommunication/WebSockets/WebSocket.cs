@@ -1,4 +1,5 @@
-﻿using System.Net.WebSockets;
+﻿using System.Diagnostics;
+using System.Net.WebSockets;
 using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
@@ -134,8 +135,8 @@ namespace WebSocketCommunication.WebSockets
             if (InnerWebSocket.State != SystemWebSocketState.Closed)
             {
                 await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.InternalServerError, exc.Message, CancellationToken.None);
-                Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
             }
+            Disconnected?.Invoke(this, new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
         }
 
     /// <summary>
@@ -163,7 +164,7 @@ namespace WebSocketCommunication.WebSockets
         /// </summary>
         /// <param name="message">The bytes of the message to be sent.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        protected virtual async Task SendAsync(byte[] message)
+        internal virtual async Task SendAsync(byte[] message)
         {
             // Obtain the message sending lock
             await _sendLock.WaitAsync();
@@ -191,6 +192,7 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
+                Debug.Print(exc.Message);
                 // Try to close WebSocket if it's not already closed
                 await EmergencyDisconnectAsync(exc);
             }
@@ -280,6 +282,7 @@ namespace WebSocketCommunication.WebSockets
             }
             catch (WebSocketException exc)
             {
+                Debug.Print($"On Listen : {exc.Message}");
                 // Try to close WebSocket if it's not already closed
                 await EmergencyDisconnectAsync(exc);
             }
@@ -289,7 +292,7 @@ namespace WebSocketCommunication.WebSockets
         /// Ends the web socket connection wht the web socket server as an asynchronous operation.
         /// </summary>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        public virtual async Task DisconnectAsync()
+        internal virtual async Task DisconnectAsync()
         {
             // Obtain the message sending lock
             await _sendLock.WaitAsync();

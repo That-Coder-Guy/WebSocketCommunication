@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Windows.Forms;
+using WebSocketCommunication.Enumerations;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.WebSockets;
 
@@ -22,6 +24,7 @@ namespace TestApplication
             _webSocket.Connected += OnConnected;
             _webSocket.ConnectionFailed += OnConnectionFailed;
             _webSocket.MessageReceived += OnMessageReceived;
+            _webSocket.Disconnected += OnDisconnected;
             _webSocket.BeginConnect();
         }
 
@@ -32,7 +35,8 @@ namespace TestApplication
 
         private void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e)
         {
-            Debug.Print("Connection failed");
+            Debug.Print($"Connection failed : {e.Error}");
+            Invoke(Close);
         }
 
         private void OnMessageReceived(object? sender, MessageEventArgs e)
@@ -43,6 +47,12 @@ namespace TestApplication
             {
                 uxChatMessages.Items.Add(message);
             });
+        }
+
+        private void OnDisconnected(object? sender, DisconnectEventArgs e)
+        {
+            Debug.Print($"{e.Reason}");
+            Close();
         }
 
         private void OnEndClicked(object sender, EventArgs e)
@@ -76,7 +86,10 @@ namespace TestApplication
 
         private void OnClosed(object sender, FormClosedEventArgs e)
         {
-            _webSocket.Disconnect();
+            if (_webSocket.State == WebSocketState.Open)
+            {
+                _webSocket.Disconnect();
+            }
         }
     }
 }

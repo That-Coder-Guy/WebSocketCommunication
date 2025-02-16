@@ -1,5 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
@@ -12,15 +21,13 @@ namespace WebSocketCommunication.Server
 
         public ushort Port { get; }
 
-        public bool IsListening => _listener.IsListening;
+        public bool IsListening => false; //_listener.IsListening;
         #endregion
 
         #region Fields
         private delegate WebSocketHandler WebSocketHandlerConstructor(ServerWebSocket webSocket);
 
-        private HttpListener _listener = new HttpListener();
-
-        private Task? _listenerTask;
+        private WebApplication _application;
 
         private Dictionary<Uri, WebSocketHandlerConstructor> _webSocketHandlerMap { get; } = new();
 
@@ -30,6 +37,12 @@ namespace WebSocketCommunication.Server
         #region Public
         public WebSocketServer(string domain, ushort port)
         {
+            WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
+            builder.WebHost.UseUrls($"http://{domain}:{port}");
+
+            _application = builder.Build();
+            _application.UseWebSockets();
+
             DomainName = domain;
             Port = port;
         }
@@ -38,80 +51,43 @@ namespace WebSocketCommunication.Server
 
         public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
-            endpoint = (endpoint.StartsWith('/') ? "" : "/") + endpoint + (endpoint.EndsWith('/') ? "" : "/");
-            string url = $"http://{DomainName}:{Port}{endpoint}";
-            Debug.Print(url);
-            _listener.Prefixes.Add(url);
-            _webSocketHandlerMap.Add(new Uri(url), (webSocket) =>
+            _application.Map(endpoint, DirectWebSocketRequest<TWebSocketHandler>);
+        }
+
+        private async Task DirectWebSocketRequest<TWebSocketHandler>(HttpContext context) where TWebSocketHandler : WebSocketHandler
+        {
+            if (!context.WebSockets.IsWebSocketRequest)
+            {
+                // Deny requests sent to unsupported endpoints.
+                context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+            }
+            else
             {
                 WebSocketHandler handler = Activator.CreateInstance<TWebSocketHandler>();
-                Task.Run(() => handler.Attach(webSocket, _connections));
-                return handler;
-            });
+                ServerWebSocket webSocket = await _connections.Add(context);
+                handler.Attach(webSocket, _connections);
+                await webSocket.AcceptConnectionAsync();
+            }
+        }
+
+        public void Run()
+        {
+            _application.Run();
         }
 
         public void Start()
         {
-            try
-            {
-                _listener.Start();
-                _listenerTask = Task.Run(ListenAsync);
-            }
-            catch (HttpListenerException exc)
-            {
-                Debug.Print($"{exc.Message}");
-            }
+            _application.Start();
+        }
+
+        private async Task StopAsync()
+        {
+            await _application.StopAsync();
         }
 
         public void Stop()
         {
-            _listener.Stop();
-            _listenerTask?.Wait();
-            _connections.DisconnectAll();
-        }
-
-        private async Task ListenAsync()
-        {
-            while (_listener.IsListening)
-            {
-                try
-                {
-                    // Wait for an HTTP request.
-                    HttpListenerContext context = await _listener.GetContextAsync();
-
-                    // Process request
-                    if (context.Request.IsWebSocketRequest)
-                    {
-                        // Upgrade connection type from HTTP to WebSocket.
-                        WebSocketHandlerConstructor? handler;
-                        if (context.Request.Url is Uri endpoint && _webSocketHandlerMap.TryGetValue(endpoint, out handler))
-                        {
-                            // Accept web socket connection
-                            ServerWebSocket webSocket = await _connections.Add(context);
-                            handler.Invoke(webSocket);
-                            await webSocket.AcceptConnectionAsync();
-                        }
-                        else
-                        {
-                            // Deny requests sent to unsupported endpoints.
-                            context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-                            context.Response.StatusDescription = "Method Not Allowed";
-                            context.Response.Close();  // Close the connection
-                        }
-                    }
-                    else
-                    {
-                        // Deny all request that are not HTTP to WebSocket upgrade requests.
-                        context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-                        context.Response.StatusDescription = "Method Not Allowed";
-                        context.Response.Close();  // Close the connection
-                    }
-                }
-                catch (HttpListenerException)
-                {
-                    // Gracefully close the listening process.
-                }
-            }
+            StopAsync().GetAwaiter().GetResult();
         }
         #endregion
     }
