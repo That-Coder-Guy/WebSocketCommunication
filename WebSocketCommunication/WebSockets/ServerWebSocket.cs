@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
-using System.Diagnostics;
-using System.Net;
+using System.Security.Cryptography;
 using System.Net.WebSockets;
+using System.Text;
 using WebSocketCommunication.EventArguments;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
@@ -15,11 +15,6 @@ namespace WebSocketCommunication.WebSockets
     {
         #region Fields
         /// <summary>
-        /// The identifier for the next web socket connection.
-        /// </summary>
-        private static uint NextWebSocketId = 0u;
-
-        /// <summary>
         /// The context handle to the websocket update request.
         /// </summary>
         private HttpContext _context;
@@ -31,7 +26,7 @@ namespace WebSocketCommunication.WebSockets
         /// <summary>
         /// The identifier of the web socket connection.
         /// </summary>
-        public uint Id { get; } = NextWebSocketId++;
+        public string Id { get; private set; } = string.Empty;
         #endregion
 
         #region Methods
@@ -57,6 +52,20 @@ namespace WebSocketCommunication.WebSockets
                 // Attempt to accept the connection
                 InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
                 Logger.Log($"Connection accepted successfully");
+
+                // Create a unique identifier for the web socket connection
+                string? ipAddress = _context.Connection.RemoteIpAddress?.ToString();
+                string port = _context.Connection.RemotePort.ToString();
+                string userAgent = _context.Request.Headers["User-Agent"].ToString();
+
+                string idString = $"{ipAddress}-{port}-{userAgent}";
+
+                // Generate a hash of the combined string to create a unique identifier
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(idString));
+                    Id = Convert.ToBase64String(hashBytes);
+                }
 
                 // Invoke the connected event
                 RaiseConnectedEvent();

@@ -77,8 +77,9 @@ namespace WebSocketCommunication.Server
         /// </summary>
         /// <param name="message">The bytes making up the massage.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        public async Task BroadcastAsync(byte[] message)
+        private async Task BroadcastAsync(byte[] message)
         {
+            // Create a collection to contain all the send tasks
             List<Task> sendTasks = new List<Task>();
 
             // Obtain the web socket collection access lock
@@ -110,9 +111,46 @@ namespace WebSocketCommunication.Server
         }
 
         /// <summary>
+        /// Sends a message to the web socket connection with a specific identifier as an asynchronous operation.
+        /// </summary>
+        /// <param name="id">The identifier of the target web socket connection.</param>
+        /// <param name="message">The bytes making up the massage.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        private async Task SendToAsync(string id, byte[] message)
+        {
+            // Obtain the web socket collection access lock
+            await _webSocketCollectionLock.WaitAsync();
+
+            try
+            {
+                // Find the web socket connection with the specified identifier
+                List<ServerWebSocket> matches = _webSockets.FindAll(socket => socket.Id == id);
+                if (matches.Count == 1)
+                {
+                    await matches.First().SendAsync(message);
+                }
+            }
+            finally
+            {
+                // Release the web socket collection access lock
+                _webSocketCollectionLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Sends a message to the web socket connection with a specific identifier.
+        /// </summary>
+        /// <param name="id">The identifier of the target web socket connection.</param>
+        /// <param name="message">The bytes making up the massage.</param>
+        public void SendTo(string id, byte[] message)
+        {
+            Task.Run(() => SendToAsync(id, message));
+        }
+
+        /// <summary>
         /// Disconnects all the web socket connections in the manager as an asynchronous operation.
         /// </summary>
-        public async Task DisconnectAllAsync()
+        private async Task DisconnectAllAsync()
         {
             List<Task> sendTasks = new List<Task>();
 
@@ -133,6 +171,14 @@ namespace WebSocketCommunication.Server
 
             // Wait for all disconnect operations to finish
             await Task.WhenAll(sendTasks);
+        }
+
+        /// <summary>
+        /// Disconnects all the web socket connections in the manager.
+        /// </summary>
+        private void DisconnectAll()
+        {
+            DisconnectAllAsync().GetAwaiter().GetResult();
         }
         #endregion
     }
