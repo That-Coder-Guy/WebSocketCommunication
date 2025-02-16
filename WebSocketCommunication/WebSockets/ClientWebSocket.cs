@@ -4,6 +4,7 @@ using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using WebSocketCommunication.EventArguments;
 using WebSocketCommunication.Enumerations;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace WebSocketCommunication.WebSockets
 {
@@ -41,82 +42,93 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         private async Task ConnectAsync(CancellationToken token)
         {
+            Logger.Log("Starting connection process...");
             try
             {
                 await InnerWebSocket.ConnectAsync(_serverUrl, token);
                 switch (InnerWebSocket.State)
                 {
                     case SystemWebSocketState.Open:
-                        BeginListening();
+                        Logger.Log($"Connection process succeeded");
                         RaiseConnectedEvent();
+                        await ListenAsync();
                         break;
                     default:
-                        await DisconnectAsync();
+                        Logger.Log($"Connection process failed");
+                        RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Faulted));
                         break;
                 }
             }
             catch (OperationCanceledException)
             {
                 // Connection attempt cancelled
+                RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Timeout));
             }
             catch (WebSocketException exc)
             {
-                Debug.Print(exc.Message);
+                Logger.Log($"Error occured during connection ({exc.Message})");
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }
         }
 
         /// <summary>
-        /// Starts a connection attempt if not currently running.
+        /// Attempts to create a web socket connection within a certain amout of time as an asynchronous operation.
         /// </summary>
-        /// <returns>Whether the connection process was started.</returns>
-        public bool BeginConnect()
+        /// <param name="timeout">The amount of time which the connection attempt is allotted.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        public async Task AttemptConnect(int timeout)
         {
-            // If the connection task has never been run or is done running
-            if (!IsTaskRunning(_connectionTask))
+            if (_connectionTask == null || _connectionTask.Status != TaskStatus.Running)
             {
                 // Create a cancellation token for the connection task
                 _connectionToken = new CancellationTokenSource();
 
-                // Start the conenction task
-                _connectionTask = Task.Run(() => ConnectAsync(_connectionToken.Token));
-                return true;
-            }
-            return false;
-        }
+                // Create connection task
+                _connectionTask = ConnectAsync(_connectionToken.Token);
 
-        /// <summary>
-        /// Ends a connection attempt if currently running.
-        /// </summary>
-        /// <returns>Whether the connection process was ended.</returns>
-        public bool EndConnect()
-        {
-            if (_connectionTask != null && _connectionTask.Status == TaskStatus.Running)
-            {
-                _connectionToken.Cancel();
-                _connectionTask.Wait();
-                return _connectionTask.IsCanceled;
-            }
-            return false;
-        }
+                // Create a timeout task
+                CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
+                Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
 
-        /// <summary>
-        /// Attempts to connect attempt if not currently running.
-        /// </summary>
-        /// <returns>Whether the connection process succeeded.</returns>
-        public bool Connect()
-        {
-            if (!BeginConnect())
-            {
-                Task.Delay(10000).Wait();
-                if (InnerWebSocket.State == SystemWebSocketState.Connecting)
+                // Create a task that completes when the web socket connection attempt succeeds or fails
+                TaskCompletionSource<bool> connectionSucceeded = new TaskCompletionSource<bool>();
+                
+                EventHandler onConnected = (s, a) =>
                 {
-                    EndConnect();
-                    return false;
+                    connectionSucceeded.SetResult(true);
+                    timeoutTokenSource.Cancel();
+                };
+                EventHandler<ConnectionFailedEventArgs> onConnectionFailed = (s, a) =>
+                {
+                    connectionSucceeded.SetResult(false);
+                    timeoutTokenSource.Cancel();
+                };
+                
+                Connected += onConnected;
+                ConnectionFailed += onConnectionFailed;
+
+                // Wait to see which task finishes first
+                Task? completedTask = await Task.WhenAny(timeoutTask, connectionSucceeded.Task);
+
+                // Cancel the web socket connection attempt if the timeout task finished first
+                if (completedTask == timeoutTask)
+                {
+                    _connectionToken.Cancel();
                 }
-                return true;
+
+                // Clean up
+                Connected -= onConnected;
+                ConnectionFailed -= onConnectionFailed;
             }
-            else throw new InvalidOperationException("Connection task already in progress.");
+        }
+
+        /// <summary>
+        /// Attempts to create a web socket connection within a certain amout of time.
+        /// </summary>
+        /// // <param name="timeout">The amount of time which the connection attempt is allotted.</param>
+        public void Connect(int timeout)
+        {
+            Task.Run(() => AttemptConnect(timeout));
         }
         #endregion
     }

@@ -51,19 +51,22 @@ namespace WebSocketCommunication.WebSockets
         /// <returns>The task object representing the asynchronous operation.</returns>
         public async Task AcceptConnectionAsync()
         {
+            Logger.Log("Starting connection accepting process...");
             try
             {
                 // Attempt to accept the connection
                 InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
-
-                // Start the message listening task
-                BeginListening();
+                Logger.Log($"Connection accepted successfully");
 
                 // Invoke the connected event
                 RaiseConnectedEvent();
+
+                // Listen for messages
+                await ListenAsync();
             }
             catch (WebSocketException exc)
             {
+                Logger.Log($"Connection unsuccessful ({exc.Message})");
                 // Invoke the connection fail event if an exception occures
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }

@@ -25,7 +25,7 @@ namespace TestApplication
             _webSocket.ConnectionFailed += OnConnectionFailed;
             _webSocket.MessageReceived += OnMessageReceived;
             _webSocket.Disconnected += OnDisconnected;
-            _webSocket.BeginConnect();
+            _webSocket.Connect(1000);
         }
 
         private void OnConnected(object? sender, EventArgs e)
@@ -52,7 +52,7 @@ namespace TestApplication
         private void OnDisconnected(object? sender, DisconnectEventArgs e)
         {
             Debug.Print($"{e.Reason}");
-            Close();
+            Invoke(Close);
         }
 
         private void OnEndClicked(object sender, EventArgs e)

@@ -10,6 +10,10 @@ namespace WebSocketCommunication.Enumerations
     {
         //
         // Summary:
+        //     Indicates that a WebSocket operation timed out.
+        Timeout = -1,
+        //
+        // Summary:
         //     Indicates that there was no native error information for the exception.
         Success = 0,
         //

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
@@ -39,6 +40,9 @@ namespace WebSocketCommunication.Server
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
             builder.WebHost.UseUrls($"http://{domain}:{port}");
+            builder.Logging.ClearProviders(); // Optional: Clears default logging providers
+            builder.Logging.AddConsole(); // Add console logger
+            builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
             _application = builder.Build();
             _application.UseWebSockets();
