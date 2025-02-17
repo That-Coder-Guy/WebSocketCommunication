@@ -1,88 +1,86 @@
 ﻿using Microsoft.AspNetCore.Http;
-using System.Net;
-using WebSocketCommunication.WebSockets;
 
 namespace WebSocketCommunication.Server
 {
     /// <summary>
-    /// A web socket connection manager for server implementations.
+    /// Manages active WebSocket connections for server implementations.
     /// </summary>
     public class WebSocketManager
     {
         #region Fields
         /// <summary>
-        /// A collection of all the web socket connection being managed.
+        /// Holds all active WebSocket connections.
         /// </summary>
         private List<ServerWebSocket> _webSockets = new();
 
         /// <summary>
-        /// An access lock for the web socket connection collection.
+        /// Ensures thread-safe access to the WebSocket collection.
         /// </summary>
         private SemaphoreSlim _webSocketCollectionLock = new SemaphoreSlim(1, 1);
         #endregion
 
         #region Properties
         /// <summary>
-        /// The number of web socket connections being managed.
+        /// Gets the current count of managed WebSocket connections.
         /// </summary>
         public int Count => _webSockets.Count;
         #endregion
 
         #region Methods
         /// <summary>
-        /// Adds a web socket connection to be mananged as an asynchronous operation.
+        /// Asynchronously creates and registers a new WebSocket connection based on the incoming HTTP context.
         /// </summary>
-        /// <param name="context">The context handle to the web socket update request to be realized.</param>
-        /// <returns>The relized web socket connection wrapped in a task.</returns>
+        /// <param name="context">The HTTP context for the WebSocket upgrade request.</param>
+        /// <returns>A task that represents the asynchronous operation, returning the created WebSocket connection.</returns>
         internal async Task<ServerWebSocket> Add(HttpContext context)
         {
-            // Create the web socket connection
+            // Instantiate a new WebSocket connection.
             ServerWebSocket webSocket = new ServerWebSocket(context);
 
-            // Obtain the web socket collection access lock
+            // Acquire the lock to ensure exclusive access to the collection.
             await _webSocketCollectionLock.WaitAsync();
 
-            // Ensure the web socket is removed from the manager apon closure
+            // Ensure that the connection is removed from the manager when it disconnects.
             webSocket.Disconnected += async (s, e) => await Remove(webSocket);
 
-            // Add the web socket connection to the manager
+            // Add the new WebSocket connection to the managed collection.
             _webSockets.Add(webSocket);
 
-            // Release the web socket collection access lock
+            // Release the lock on the collection.
             _webSocketCollectionLock.Release();
 
-            // Return the realized web socket connection
+            // Return the newly created WebSocket connection.
             return webSocket;
         }
 
         /// <summary>
-        /// Removes a specific web socket connection for the manager as an asynchronous operation.
+        /// Asynchronously removes the specified WebSocket connection from the manager.
         /// </summary>
-        /// <param name="item">The web socket connection to be removed.</param>
-        /// <returns>The task object representing the asynchronous operation.</returns>
+        /// <param name="item">The WebSocket connection to remove.</param>
+        /// <returns>A task representing the asynchronous removal operation.</returns>
         private async Task Remove(ServerWebSocket item)
         {
-            // Obtain the web socket collection access lock
+            // Acquire the lock to modify the collection safely.
             await _webSocketCollectionLock.WaitAsync();
 
-            // Remove the target web socket
+            // Remove the specified WebSocket connection.
             _webSockets.Remove(item);
 
-            // Release the web socket collection access lock
+            // Release the lock.
             _webSocketCollectionLock.Release();
         }
 
         /// <summary>
-        /// Sends a message to all web socket connections in the manager as an asynchronous operation.
+        /// Asynchronously broadcasts a message to all active WebSocket connections.
         /// </summary>
-        /// <param name="message">The bytes making up the massage.</param>
-        /// <returns>The task object representing the asynchronous operation.</returns>
+        /// <param name="message">The message bytes to send.</param>
+        /// <returns>A task representing the asynchronous broadcast operation.</returns>
         private async Task BroadcastAsync(byte[] message)
         {
-            // Create a collection to contain all the send tasks
+            // Collect tasks for sending the message to each connection.
             List<Task> sendTasks = new List<Task>();
 
-            // Obtain the web socket collection access lock
+            // Lock the collection during iteration to prevent modifications.
             await _webSocketCollectionLock.WaitAsync();
             try
             {
@@ -93,91 +91,97 @@ namespace WebSocketCommunication.Server
             }
             finally
             {
-                // Release the web socket collection access lock
+                // Always release the lock, even if an exception occurs.
                 _webSocketCollectionLock.Release();
             }
 
-            // Wait for all send operations to finish
+            // Wait until all send operations have completed.
             await Task.WhenAll(sendTasks);
         }
 
         /// <summary>
-        /// Sends a message to all web socket connections in the manager.
+        /// Broadcasts a message to all active WebSocket connections.
         /// </summary>
-        /// <param name="message">The bytes making up the massage.</param>
+        /// <param name="message">The message bytes to send.</param>
         public void Broadcast(byte[] message)
         {
+            // Run the asynchronous broadcast operation without awaiting it.
             Task.Run(() => BroadcastAsync(message));
         }
 
         /// <summary>
-        /// Sends a message to the web socket connection with a specific identifier as an asynchronous operation.
+        /// Asynchronously sends a message to a specific WebSocket connection identified by its ID.
         /// </summary>
-        /// <param name="id">The identifier of the target web socket connection.</param>
-        /// <param name="message">The bytes making up the massage.</param>
-        /// <returns>The task object representing the asynchronous operation.</returns>
+        /// <param name="id">The identifier of the target WebSocket connection.</param>
+        /// <param name="message">The message bytes to send.</param>
+        /// <returns>A task representing the asynchronous send operation.</returns>
         private async Task SendToAsync(string id, byte[] message)
         {
-            // Obtain the web socket collection access lock
+            // Acquire the lock to search the connection collection safely.
             await _webSocketCollectionLock.WaitAsync();
 
             try
             {
-                // Find the web socket connection with the specified identifier
+                // Locate the connection(s) matching the provided ID.
                 List<ServerWebSocket> matches = _webSockets.FindAll(socket => socket.Id == id);
                 if (matches.Count == 1)
                 {
+                    // Send the message to the matching connection.
                     await matches.First().SendAsync(message);
                 }
             }
             finally
             {
-                // Release the web socket collection access lock
+                // Release the lock regardless of the operation outcome.
                 _webSocketCollectionLock.Release();
             }
         }
 
         /// <summary>
-        /// Sends a message to the web socket connection with a specific identifier.
+        /// Sends a message to a specific WebSocket connection identified by its ID.
         /// </summary>
-        /// <param name="id">The identifier of the target web socket connection.</param>
-        /// <param name="message">The bytes making up the massage.</param>
+        /// <param name="id">The identifier of the target WebSocket connection.</param>
+        /// <param name="message">The message bytes to send.</param>
         public void SendTo(string id, byte[] message)
         {
+            // Initiate the asynchronous send operation without awaiting it.
             Task.Run(() => SendToAsync(id, message));
         }
 
         /// <summary>
-        /// Disconnects all the web socket connections in the manager as an asynchronous operation.
+        /// Asynchronously disconnects all active WebSocket connections.
         /// </summary>
+        /// <returns>A task representing the asynchronous disconnect operations.</returns>
         private async Task DisconnectAllAsync()
         {
-            List<Task> sendTasks = new List<Task>();
+            // Gather tasks for disconnecting each connection.
+            List<Task> disconnectTasks = new List<Task>();
 
-            // Obtain the web socket collection access lock
+            // Acquire the lock to iterate over the connections safely.
             await _webSocketCollectionLock.WaitAsync();
             try
             {
                 foreach (ServerWebSocket socket in _webSockets)
                 {
-                    sendTasks.Add(socket.DisconnectAsync());
+                    disconnectTasks.Add(socket.DisconnectAsync());
                 }
             }
             finally
             {
-                // Release the web socket collection access lock
+                // Release the lock after iterating.
                 _webSocketCollectionLock.Release();
             }
 
-            // Wait for all disconnect operations to finish
-            await Task.WhenAll(sendTasks);
+            // Wait for all disconnect operations to complete.
+            await Task.WhenAll(disconnectTasks);
         }
 
         /// <summary>
-        /// Disconnects all the web socket connections in the manager.
+        /// Synchronously disconnects all active WebSocket connections.
         /// </summary>
         private void DisconnectAll()
         {
+            // Wait synchronously for all asynchronous disconnect operations to finish.
             DisconnectAllAsync().GetAwaiter().GetResult();
         }
         #endregion

@@ -1,58 +1,63 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace WebSocketCommunication.Enumerations
+﻿namespace WebSocketCommunication
 {
+    /// <summary>
+    /// Specifies possible error codes for WebSocket communication failures.
+    /// </summary>
     public enum WebSocketError
     {
-        //
-        // Summary:
-        //     Indicates that a WebSocket operation timed out.
+        /// <summary>
+        /// Indicates that a WebSocket operation timed out.
+        /// </summary>
         Timeout = -1,
-        //
-        // Summary:
-        //     Indicates that there was no native error information for the exception.
+
+        /// <summary>
+        /// Indicates that there was no native error information for the exception.
+        /// </summary>
         Success = 0,
-        //
-        // Summary:
-        //     Indicates that a WebSocket frame with an unknown opcode was received.
+
+        /// <summary>
+        /// Indicates that a WebSocket frame with an unknown opcode was received.
+        /// </summary>
         InvalidMessageType = 1,
-        //
-        // Summary:
-        //     Indicates a general error.
+
+        /// <summary>
+        /// Indicates a general error occurred.
+        /// </summary>
         Faulted = 2,
-        //
-        // Summary:
-        //     Indicates that an unknown native error occurred.
+
+        /// <summary>
+        /// Indicates that an unknown native error occurred.
+        /// </summary>
         NativeError = 3,
-        //
-        // Summary:
-        //     Indicates that the incoming request was not a valid websocket request.
+
+        /// <summary>
+        /// Indicates that the incoming request was not a valid WebSocket request.
+        /// </summary>
         NotAWebSocket = 4,
-        //
-        // Summary:
-        //     Indicates that the client requested an unsupported version of the WebSocket protocol.
+
+        /// <summary>
+        /// Indicates that the client requested an unsupported version of the WebSocket protocol.
+        /// </summary>
         UnsupportedVersion = 5,
-        //
-        // Summary:
-        //     Indicates that the client requested an unsupported WebSocket subprotocol.
+
+        /// <summary>
+        /// Indicates that the client requested an unsupported WebSocket subprotocol.
+        /// </summary>
         UnsupportedProtocol = 6,
-        //
-        // Summary:
-        //     Indicates an error occurred when parsing the HTTP headers during the opening
-        //     handshake.
+
+        /// <summary>
+        /// Indicates an error occurred while parsing the HTTP headers during the opening handshake.
+        /// </summary>
         HeaderError = 7,
-        //
-        // Summary:
-        //     Indicates that the connection was terminated unexpectedly.
+
+        /// <summary>
+        /// Indicates that the connection was terminated unexpectedly.
+        /// </summary>
         ConnectionClosedPrematurely = 8,
-        //
-        // Summary:
-        //     Indicates the WebSocket is an invalid state for the given operation (such as
-        //     being closed or aborted).
+
+        /// <summary>
+        /// Indicates the WebSocket is in an invalid state for the given operation (such as being closed or aborted).
+        /// </summary>
         InvalidState = 9
     }
 }

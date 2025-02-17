@@ -2,87 +2,89 @@
 using System.Security.Cryptography;
 using System.Net.WebSockets;
 using System.Text;
-using WebSocketCommunication.EventArguments;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
-using WebSocketError = WebSocketCommunication.Enumerations.WebSocketError;
 
-namespace WebSocketCommunication.WebSockets
+namespace WebSocketCommunication
 {
     /// <summary>
-    /// Represents a server's web socket connection to a client.
+    /// Represents a server-side WebSocket connection with a client.
     /// </summary>
     public class ServerWebSocket : WebSocket<SystemWebSocket>
     {
         #region Fields
         /// <summary>
-        /// The context handle to the websocket update request.
+        /// Holds the HTTP context associated with the WebSocket upgrade request.
         /// </summary>
         private HttpContext _context;
         #endregion
 
         #region Properties
-        protected override SystemWebSocket InnerWebSocket { get; set; }
-        
         /// <summary>
-        /// The identifier of the web socket connection.
+        /// Gets or sets the underlying WebSocket instance.
+        /// </summary>
+        protected override SystemWebSocket InnerWebSocket { get; set; }
+
+        /// <summary>
+        /// Gets the unique identifier for this WebSocket connection.
         /// </summary>
         public string Id { get; private set; } = string.Empty;
         #endregion
 
         #region Methods
         /// <summary>
-        /// The ServerWebSocket constructor.
+        /// Initializes a new instance of the <see cref="ServerWebSocket"/> class.
         /// </summary>
-        /// <param name="context">The context handle to the websocket update request being realized.</param>
+        /// <param name="context">The HTTP context for the WebSocket upgrade request.</param>
         public ServerWebSocket(HttpContext context)
         {
-            InnerWebSocket = SystemWebSocket.CreateFromStream(Stream.Null, false, null, TimeSpan.Zero);  // False connection
+            // Create a dummy WebSocket instance since the connection is not yet established.
+            InnerWebSocket = SystemWebSocket.CreateFromStream(Stream.Null, false, null, TimeSpan.Zero);
             _context = context;
         }
-        
+
         /// <summary>
-        /// Accepts an incoming web socket connection as an asynchronous operation.
+        /// Asynchronously accepts an incoming WebSocket connection.
         /// </summary>
-        /// <returns>The task object representing the asynchronous operation.</returns>
+        /// <returns>A task representing the asynchronous accept operation.</returns>
         public async Task AcceptConnectionAsync()
         {
-            Logger.Log("Starting connection accepting process...");
+            Logger.Log("Starting to accept WebSocket connection...");
             try
             {
-                // Attempt to accept the connection
+                // Accept the incoming WebSocket connection.
                 InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
-                Logger.Log($"Connection accepted successfully");
+                Logger.Log("WebSocket connection accepted successfully.");
 
-                // Create a unique identifier for the web socket connection
+                // Generate a unique identifier using the remote IP, port, and user agent.
                 string? ipAddress = _context.Connection.RemoteIpAddress?.ToString();
                 string port = _context.Connection.RemotePort.ToString();
                 string userAgent = _context.Request.Headers["User-Agent"].ToString();
 
                 string idString = $"{ipAddress}-{port}-{userAgent}";
 
-                // Generate a hash of the combined string to create a unique identifier
+                // Compute a SHA256 hash of the identifier string to create a unique connection ID.
                 using (SHA256 sha256 = SHA256.Create())
                 {
                     byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(idString));
                     Id = Convert.ToBase64String(hashBytes);
                 }
 
-                // Invoke the connected event
+                // Trigger the event to notify that the connection has been established.
                 RaiseConnectedEvent();
 
-                // Listen for messages
+                // Begin listening for incoming messages on this connection.
                 await ListenAsync();
             }
             catch (WebSocketException exc)
             {
-                Logger.Log($"Connection unsuccessful ({exc.Message})");
-                // Invoke the connection fail event if an exception occures
+                Logger.Log($"Failed to accept connection: {exc.Message}");
+                // Trigger the connection failure event with the relevant error information.
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }
         }
 
         /// <summary>
-        /// Accepts an incoming web socket connection.
+        /// Initiates the asynchronous acceptance of an incoming WebSocket connection.
         /// </summary>
         public void AcceptConnection()
         {

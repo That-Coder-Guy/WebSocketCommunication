@@ -1,34 +1,43 @@
-﻿namespace WebSocketCommunication.Enumerations
+﻿namespace WebSocketCommunication
 {
+    /// <summary>
+    /// Represents the different states of a WebSocket connection.
+    /// </summary>
     public enum WebSocketState
     {
-        //
-        // Summary:
-        //     Reserved for future use.
+        /// <summary>
+        /// Reserved for future use. The WebSocket state is undefined.
+        /// </summary>
         None = 0,
-        //
-        // Summary:
-        //     The connection is negotiating the handshake with the remote endpoint.
+
+        /// <summary>
+        /// The connection is negotiating the handshake with the remote endpoint.
+        /// </summary>
         Connecting = 1,
-        //
-        // Summary:
-        //     The initial state after the HTTP handshake has been completed.
+
+        /// <summary>
+        /// The WebSocket connection is open and ready to send/receive messages.
+        /// </summary>
         Open = 2,
-        //
-        // Summary:
-        //     A close message was sent to the remote endpoint.
+
+        /// <summary>
+        /// A close message has been sent to the remote endpoint, awaiting acknowledgment.
+        /// </summary>
         CloseSent = 3,
-        //
-        // Summary:
-        //     A close message was received from the remote endpoint.
+
+        /// <summary>
+        /// A close message has been received from the remote endpoint, but the connection is not fully closed yet.
+        /// </summary>
         CloseReceived = 4,
-        //
-        // Summary:
-        //     Indicates the WebSocket close handshake completed gracefully.
+
+        /// <summary>
+        /// The WebSocket connection has been closed gracefully following the close handshake.
+        /// </summary>
         Closed = 5,
-        //
-        // Summary:
-        //     Indicates that the WebSocket has been aborted.
+
+        /// <summary>
+        /// The WebSocket connection was terminated abruptly without completing the close handshake.
+        /// </summary>
         Aborted = 6
     }
 }

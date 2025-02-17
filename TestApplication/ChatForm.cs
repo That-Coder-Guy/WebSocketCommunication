@@ -1,9 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using System.Windows.Forms;
-using WebSocketCommunication.Enumerations;
-using WebSocketCommunication.EventArguments;
-using WebSocketCommunication.WebSockets;
+using WebSocketCommunication;
 
 namespace TestApplication
 {
