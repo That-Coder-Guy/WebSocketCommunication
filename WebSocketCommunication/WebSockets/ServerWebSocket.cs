@@ -48,12 +48,10 @@ namespace WebSocketCommunication
         /// <returns>A task representing the asynchronous accept operation.</returns>
         public async Task AcceptConnectionAsync()
         {
-            Logger.Log("Starting to accept WebSocket connection...");
             try
             {
                 // Accept the incoming WebSocket connection.
                 InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
-                Logger.Log("WebSocket connection accepted successfully.");
 
                 // Generate a unique identifier using the remote IP, port, and user agent.
                 string? ipAddress = _context.Connection.RemoteIpAddress?.ToString();
@@ -77,7 +75,6 @@ namespace WebSocketCommunication
             }
             catch (WebSocketException exc)
             {
-                Logger.Log($"Failed to accept connection: {exc.Message}");
                 // Trigger the connection failure event with the relevant error information.
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }

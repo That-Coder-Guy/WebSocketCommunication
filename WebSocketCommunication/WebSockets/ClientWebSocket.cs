@@ -41,7 +41,6 @@ namespace WebSocketCommunication
         /// <returns>A task that represents the asynchronous connection operation.</returns>
         private async Task ConnectAsync(CancellationToken token)
         {
-            Logger.Log("Initiating connection process...");
             try
             {
                 // Attempt to establish the connection.
@@ -51,14 +50,12 @@ namespace WebSocketCommunication
                 switch (InnerWebSocket.State)
                 {
                     case SystemWebSocketState.Open:
-                        Logger.Log("Connection established successfully.");
                         RaiseConnectedEvent();
                         // Start listening for incoming messages.
                         await ListenAsync();
                         break;
 
                     default:
-                        Logger.Log("Connection attempt failed.");
                         RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Faulted));
                         break;
                 }
@@ -70,7 +67,6 @@ namespace WebSocketCommunication
             }
             catch (WebSocketException exc)
             {
-                Logger.Log($"Error during connection: {exc.Message}");
                 // Report a connection failure based on the specific WebSocket error.
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
             }

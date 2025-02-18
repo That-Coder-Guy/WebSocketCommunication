@@ -127,8 +127,6 @@ namespace WebSocketCommunication
         /// <param name="exc">The WebSocketException that triggered the disconnect.</param>
         protected virtual async Task EmergencyDisconnectAsync(WebSocketException exc)
         {
-            Logger.Log($"Starting emergency disconnect ({exc.Message})...");
-
             if (InnerWebSocket.State != SystemWebSocketState.Closed)
             {
                 // Attempt to close the output channel using an error status.
@@ -136,7 +134,6 @@ namespace WebSocketCommunication
             }
             // Raise the disconnected event with the mapped closure reason.
             RaiseDisconnectedEvent(new DisconnectEventArgs(GetClosureReason((WebSocketError)exc.WebSocketErrorCode)));
-            Logger.Log("Emergency disconnect completed");
         }
 
         /// <summary>
@@ -174,8 +171,6 @@ namespace WebSocketCommunication
         /// <param name="message">The message data to send as a byte array.</param>
         internal virtual async Task SendAsync(byte[] message)
         {
-            Logger.Log("Starting message sending process...");
-
             // Acquire the lock to ensure exclusive access for sending.
             await _sendLock.WaitAsync();
 
@@ -196,7 +191,6 @@ namespace WebSocketCommunication
                     // Identify if this is the final segment of the message.
                     bool endOfMessage = (i == totalChunks - 1);
 
-                    Logger.Log($"Sending message chunk {i + 1} of {totalChunks}...");
                     // Transmit the current chunk asynchronously.
                     await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
                 }
@@ -209,7 +203,6 @@ namespace WebSocketCommunication
 
             // Release the send lock after the message has been sent.
             _sendLock.Release();
-            Logger.Log("Message sending process completed");
         }
 
         /// <summary>
@@ -227,8 +220,6 @@ namespace WebSocketCommunication
         /// </summary>
         protected virtual async Task ListenAsync()
         {
-            Logger.Log("Started message listening process...");
-
             try
             {
                 // Allocate a buffer for receiving message data.
@@ -240,37 +231,29 @@ namespace WebSocketCommunication
                     // Use a memory stream to accumulate data from potentially fragmented messages.
                     using (MemoryStream data = new MemoryStream())
                     {
-                        Logger.Log("Listening for new message...");
-
                         // Receive the first segment of the message.
                         WebSocketReceiveResult result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
 
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            Logger.Log("Close frame received");
-
                             // Handle the closing handshake based on the current state.
                             switch (InnerWebSocket.State)
                             {
                                 case SystemWebSocketState.Closed:
                                     // The close handshake has already been acknowledged.
-                                    Logger.Log("Disconnection handshake acknowledged");
                                     break;
 
                                 case SystemWebSocketState.CloseReceived:
                                     // Acknowledge the received close frame by sending a close message.
-                                    Logger.Log("Acknowledging disconnection handshake...");
                                     await InnerWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                                     break;
                             }
 
                             // Notify subscribers that the connection has been closed.
-                            Logger.Log("Raising disconnection event...");
                             RaiseDisconnectedEvent(new DisconnectEventArgs(WebSocketClosureReason.NormalClosure));
                         }
                         else
                         {
-                            Logger.Log("Receiving message...");
                             // Write the received data to the memory stream.
                             data.Write(buffer, 0, result.Count);
 
@@ -280,10 +263,8 @@ namespace WebSocketCommunication
                                 result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
                                 data.Write(buffer, 0, result.Count);
                             }
-                            Logger.Log("Message received");
 
                             // Notify subscribers that a complete message has been received.
-                            Logger.Log("Raising message received event");
                             RaiseMessageReceivedEvent(new MessageEventArgs(data));
                         }
                     }
@@ -291,12 +272,9 @@ namespace WebSocketCommunication
             }
             catch (WebSocketException exc)
             {
-                Logger.Log($"Error occurred during message listening ({exc.Message})");
                 // On error, perform an emergency disconnect.
                 await EmergencyDisconnectAsync(exc);
             }
-
-            Logger.Log("Message listening process completed");
         }
 
         /// <summary>
@@ -306,8 +284,6 @@ namespace WebSocketCommunication
         /// </summary>
         internal virtual async Task DisconnectAsync()
         {
-            Logger.Log("Starting disconnection process...");
-
             // Acquire the send lock to ensure no messages are being sent during disconnect.
             await _sendLock.WaitAsync();
 
@@ -319,7 +295,6 @@ namespace WebSocketCommunication
 
             // Release the send lock.
             _sendLock.Release();
-            Logger.Log("Disconnection process completed");
         }
 
         /// <summary>
