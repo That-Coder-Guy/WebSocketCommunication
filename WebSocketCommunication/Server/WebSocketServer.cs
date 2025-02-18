@@ -1,4 +1,7 @@
 ﻿using System.Net;
+using Serilog;
+using Serilog.Extensions.Logging;
+using Serilog.Sinks.File;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -39,7 +42,7 @@ namespace WebSocketCommunication.Server
         /// </summary>
         /// <param name="rootUrl">The base URL for the server.</param>
         /// <param name="port">The port number on which the server listens.</param>
-        public WebSocketServer(string rootUrl, ushort port)
+        public WebSocketServer(string rootUrl, ushort port, string? outputPath)
         {
             // Create a new web application builder without pre-configured arguments.
             WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
@@ -50,8 +53,19 @@ namespace WebSocketCommunication.Server
             // Remove default logging providers for custom logging configuration.
             builder.Logging.ClearProviders();
 
-            // Add console-based logging to output diagnostic information.
-            builder.Logging.AddConsole();
+            // Add logging medium to output diagnostic information.
+            if (outputPath == null)
+            {
+                builder.Logging.AddConsole();
+            }
+            else
+            {
+                Log.Logger = new LoggerConfiguration()
+                    .WriteTo.File(outputPath, rollingInterval: RollingInterval.Day)
+                    .CreateLogger();
+
+                builder.Logging.AddSerilog();
+            }
 
             // Set the logging threshold to capture debug-level events.
             builder.Logging.SetMinimumLevel(LogLevel.Debug);
@@ -69,7 +83,7 @@ namespace WebSocketCommunication.Server
         /// Initializes a new instance of the <see cref="WebSocketServer"/> class using 'localhost' as the root URL.
         /// </summary>
         /// <param name="port">The port number on which the server listens.</param>
-        public WebSocketServer(ushort port) : this("localhost", port) { }
+        public WebSocketServer(ushort port) : this("localhost", port, null) { }
 
         /// <summary>
         /// Registers a WebSocket service endpoint with a specific WebSocket handler.

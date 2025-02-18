@@ -17,12 +17,12 @@ namespace TestApplication
             _name = form.EnteredName;
             InitializeComponent();
 
-            _webSocket = new ClientWebSocket("ws://localhost:8080/chat/");
+            _webSocket = new ClientWebSocket("ws://129.130.10.39:8080/chat/");
             _webSocket.Connected += OnConnected;
             _webSocket.ConnectionFailed += OnConnectionFailed;
             _webSocket.MessageReceived += OnMessageReceived;
             _webSocket.Disconnected += OnDisconnected;
-            _webSocket.Connect(1000);
+            _webSocket.Connect(5000);
         }
 
         private void OnConnected(object? sender, EventArgs e)
