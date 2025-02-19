@@ -1,6 +1,6 @@
 ﻿using TestServer;
 using WebSocketCommunication.Server;
 
-WebSocketServer server = new WebSocketServer("0.0.0.0", 8080, null);
+WebSocketServer server = new WebSocketServer("127.0.0.1", 8080);
 server.AddService<Chat>("/chat/");
 server.Run();

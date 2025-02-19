@@ -83,7 +83,7 @@ namespace WebSocketCommunication.Server
         /// Initializes a new instance of the <see cref="WebSocketServer"/> class using 'localhost' as the root URL.
         /// </summary>
         /// <param name="port">The port number on which the server listens.</param>
-        public WebSocketServer(ushort port) : this("localhost", port, null) { }
+        public WebSocketServer(ushort port) : this("localhost", port) { }
 
         /// <summary>
         /// Registers a WebSocket service endpoint with a specific WebSocket handler.
