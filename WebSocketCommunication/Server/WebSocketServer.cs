@@ -42,7 +42,7 @@ namespace WebSocketCommunication.Server
         /// </summary>
         /// <param name="rootUrl">The base URL for the server.</param>
         /// <param name="port">The port number on which the server listens.</param>
-        public WebSocketServer(string rootUrl, ushort port, string? outputPath)
+        public WebSocketServer(string rootUrl, ushort port)
         {
             // Create a new web application builder without pre-configured arguments.
             WebApplicationBuilder builder = WebApplication.CreateBuilder([]);
@@ -54,14 +54,14 @@ namespace WebSocketCommunication.Server
             builder.Logging.ClearProviders();
 
             // Add logging medium to output diagnostic information.
-            if (outputPath == null)
+            if (Environment.UserInteractive)
             {
                 builder.Logging.AddConsole();
             }
             else
             {
                 Log.Logger = new LoggerConfiguration()
-                    .WriteTo.File(outputPath, rollingInterval: RollingInterval.Day)
+                    .WriteTo.File("log/log.txt", rollingInterval: RollingInterval.Day)
                     .CreateLogger();
 
                 builder.Logging.AddSerilog();
