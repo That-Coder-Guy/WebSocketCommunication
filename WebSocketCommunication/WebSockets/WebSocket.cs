@@ -139,8 +139,7 @@ namespace WebSocketCommunication
         /// <summary>
         /// Asynchronously invokes all subscribers of the Connected event.
         /// </summary>
-        protected virtual void RaiseConnectedEvent() =>
-            Task.Run(() => Connected?.Invoke(this, EventArgs.Empty));
+        protected virtual void RaiseConnectedEvent() => Connected?.Invoke(this, EventArgs.Empty);
 
         /// <summary>
         /// Asynchronously invokes all subscribers of the MessageReceived event with the provided arguments.
