@@ -90,45 +90,20 @@ namespace WebSocketCommunication
                 _connectionToken = new CancellationTokenSource();
 
                 // Start the asynchronous connection process.
-                _connectionTask = ConnectAsync(_connectionToken.Token);
+                _connectionTask = InnerWebSocket.ConnectAsync(_serverUrl, _connectionToken.Token);
 
                 // Set up a timeout task that completes after the specified duration.
                 CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
                 Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
 
-                // Create a task that will complete when the connection either succeeds or fails.
-                TaskCompletionSource<bool> connectionResult = new TaskCompletionSource<bool>();
-
-                // Handler for successful connection.
-                EventHandler onConnected = (s, a) =>
-                {
-                    connectionResult.SetResult(true);
-                    timeoutTokenSource.Cancel();
-                };
-
-                // Handler for failed connection.
-                EventHandler<ConnectionFailedEventArgs> onConnectionFailed = (s, a) =>
-                {
-                    connectionResult.SetResult(false);
-                    timeoutTokenSource.Cancel();
-                };
-
-                // Subscribe to connection events.
-                Connected += onConnected;
-                ConnectionFailed += onConnectionFailed;
-
                 // Wait for either the timeout or the connection result.
-                Task completedTask = await Task.WhenAny(timeoutTask, connectionResult.Task);
+                Task completedTask = await Task.WhenAny(timeoutTask, _connectionTask);
 
                 // If the timeout task finished first, cancel the connection attempt.
                 if (completedTask == timeoutTask)
                 {
                     _connectionToken.Cancel();
                 }
-
-                // Unsubscribe from the events.
-                Connected -= onConnected;
-                ConnectionFailed -= onConnectionFailed;
             }
         }
 
