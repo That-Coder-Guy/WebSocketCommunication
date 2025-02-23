@@ -31,6 +31,10 @@ namespace WebSocketCommunication
         public ClientWebSocket(string url)
         {
             _serverUrl = new Uri(url);
+            if (_serverUrl.Scheme != Uri.UriSchemeWs)
+            {
+                throw new ArgumentException("Server uri scheme must be ws://", nameof(url));
+            }
             InnerWebSocket = new SystemClientWebSocket();
         }
 
