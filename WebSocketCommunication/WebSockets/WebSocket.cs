@@ -13,19 +13,9 @@ namespace WebSocketCommunication
         private readonly int MESSAGE_BUFFER_SIZE = 16384;
 
         /// <summary>
-        /// Holds the asynchronous task that manages the connection process.
-        /// </summary>
-        protected Task? _connectionTask;
-
-        /// <summary>
         /// Holds the asynchronous task that listens for incoming messages.
         /// </summary>
         private Task? _messageListenerTask;
-
-        /// <summary>
-        /// Provides a token to cancel ongoing asynchronous connection operations.
-        /// </summary>
-        protected CancellationTokenSource _connectionToken = new();
 
         /// <summary>
         /// Ensures that only one send operation is active at any given time.
