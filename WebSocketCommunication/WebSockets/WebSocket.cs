@@ -159,8 +159,7 @@ namespace WebSocketCommunication
         /// Asynchronously invokes all subscribers of the ConnectionFailed event with the provided arguments.
         /// </summary>
         /// <param name="args">The event arguments containing failure details.</param>
-        protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) =>
-            Task.Run(() => ConnectionFailed?.Invoke(this, args));
+        protected virtual void RaiseConnectionFailedEvent(ConnectionFailedEventArgs args) => ConnectionFailed?.Invoke(this, args);
 
         /// <summary>
         /// Asynchronously sends a binary message over the WebSocket connection.
