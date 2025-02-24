@@ -5,15 +5,23 @@
     /// </summary>
     public enum WebSocketError
     {
+        #region New WebSocket Errors
+        /// <summary>
+        /// Indicates that there was no error.
+        /// </summary>
+        Success = -2,
+
         /// <summary>
         /// Indicates that a WebSocket operation timed out.
         /// </summary>
         Timeout = -1,
+        #endregion
 
+        #region Original WebSocket Errors
         /// <summary>
         /// Indicates that there was no native error information for the exception.
         /// </summary>
-        Success = 0,
+        UnknownError = 0,
 
         /// <summary>
         /// Indicates that a WebSocket frame with an unknown opcode was received.
@@ -58,6 +66,7 @@
         /// <summary>
         /// Indicates the WebSocket is in an invalid state for the given operation (such as being closed or aborted).
         /// </summary>
-        InvalidState = 9
+        InvalidState = 9,
+        #endregion
     }
 }

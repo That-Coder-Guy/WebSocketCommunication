@@ -1,6 +1,7 @@
 ﻿using WebSocketException = System.Net.WebSockets.WebSocketException;
 using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
+using System.Diagnostics;
 
 namespace WebSocketCommunication
 {
@@ -48,9 +49,29 @@ namespace WebSocketCommunication
         /// </summary>
         /// <param name="token">A token to observe while waiting for the connection to complete.</param>
         /// <returns>A task that represents the asynchronous connection operation.</returns>
-        private async Task ConnectAsync(CancellationToken token)
+        private async Task<WebSocketError> ConnectAsync(CancellationToken token)
         {
-            
+            await _connectionLock.WaitAsync();
+            try
+            {
+                await InnerWebSocket.ConnectAsync(_serverUrl, token);
+            }
+            catch (OperationCanceledException)
+            {
+                InnerWebSocket = new SystemClientWebSocket();
+                return WebSocketError.Timeout;
+            }
+            catch (WebSocketException exc)
+            {
+                InnerWebSocket = new SystemClientWebSocket();
+                return (WebSocketError)exc.WebSocketErrorCode;
+            }
+            finally
+            {
+                _connectionLock.Release();
+            }
+
+            return WebSocketError.Success;
         }
 
         /// <summary>
@@ -60,46 +81,47 @@ namespace WebSocketCommunication
         /// <returns>A task representing the asynchronous connection attempt.</returns>
         public async Task AttemptConnect(int timeout)
         {
-            await _connectionLock.WaitAsync();
             // Create connection task
             CancellationTokenSource connectionTokenSource = new CancellationTokenSource();
-            Task connectionTask = InnerWebSocket.ConnectAsync(_serverUrl, connectionTokenSource.Token);
+            Task<WebSocketError> connectionTask = ConnectAsync(connectionTokenSource.Token);
 
             // Create timeout task
             CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
             Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
-            
-            // Race the tasks
-            Task completedTask = await Task.WhenAny(timeoutTask, connectionTask);
 
+            // Race the tasks
+            Debug.Print("Race tasks");
+            Task completedTask = await Task.WhenAny(timeoutTask, connectionTask);
+            Debug.Print("Race finished");
 
             if (completedTask == timeoutTask)
             {
+                Debug.Print("Timeout finished first");
                 connectionTokenSource.Cancel();
-                RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Timeout));
             }
             else
             {
+                Debug.Print("Connection finished first");
                 timeoutTokenSource.Cancel();
-                try
-                {
-                    await connectionTask;
-                }
-                catch (OperationCanceledException)
-                {
-                    _connectionLock.Release();
+            }
+
+            Debug.Print("Await connection task");
+            WebSocketError error = connectionTask.Result;
+            Debug.Print("Connection task finished");
+            switch (error)
+            {
+                case WebSocketError.Success:
+                    RaiseConnectedEvent();
+                    await ListenAsync();
+                    break;
+
+                case WebSocketError.Timeout:
                     RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Timeout));
-                }
-                catch (WebSocketException exc)
-                {
-                    _connectionLock.Release();
-                    RaiseConnectionFailedEvent(new ConnectionFailedEventArgs((WebSocketError)exc.WebSocketErrorCode));
-                }
-                catch (Exception exc)
-                {
-                    _connectionLock.Release();
-                    Console.WriteLine(exc.Message);
-                }
+                    break;
+
+                default:
+                    RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(error));
+                    break;
             }
         }
 
