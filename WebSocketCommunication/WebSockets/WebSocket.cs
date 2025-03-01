@@ -6,23 +6,6 @@ namespace WebSocketCommunication
 {
     public abstract class WebSocket<TSource> where TSource : SystemWebSocket
     {
-        #region Fields
-        /// <summary>
-        /// Defines the size of the buffer used for both reading and writing message data.
-        /// </summary>
-        private readonly int MESSAGE_BUFFER_SIZE = 16384;
-
-        /// <summary>
-        /// Holds the asynchronous task that listens for incoming messages.
-        /// </summary>
-        private Task? _messageListenerTask;
-
-        /// <summary>
-        /// Ensures that only one send operation is active at any given time.
-        /// </summary>
-        private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
-        #endregion
-
         #region Events
         /// <summary>
         /// Occurs when the WebSocket successfully establishes a connection.
@@ -45,6 +28,28 @@ namespace WebSocketCommunication
         public virtual event EventHandler<ConnectionFailedEventArgs>? ConnectionFailed;
         #endregion
 
+        #region Fields
+        /// <summary>
+        /// Defines the size of the buffer used for both reading and writing message data.
+        /// </summary>
+        private readonly int MESSAGE_BUFFER_SIZE = 16384;
+
+        /// <summary>
+        /// Holds the asynchronous task that listens for incoming messages.
+        /// </summary>
+        private Task? _messageListenerTask;
+
+        /// <summary>
+        /// Ensures that only one send operation is active at any given time.
+        /// </summary>
+        private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        protected volatile bool _isConnected = false;
+        #endregion
+
         #region Properties
         /// <summary>
         /// Gets or sets the underlying WebSocket instance that is being wrapped.
@@ -52,9 +57,9 @@ namespace WebSocketCommunication
         protected abstract TSource InnerWebSocket { get; set; }
 
         /// <summary>
-        /// Gets the current connection state of the wrapped WebSocket.
+        /// Gets the current connection state of the WebSocket.
         /// </summary>
-        public virtual WebSocketState State => (WebSocketState)InnerWebSocket.State;
+        public virtual bool IsConnected => _isConnected;
         #endregion
 
         #region Methods
@@ -199,7 +204,7 @@ namespace WebSocketCommunication
         /// <param name="message">The message data to send as a byte array.</param>
         public virtual void Send(byte[] message)
         {
-            Task.Run(() => SendAsync(message));
+            Task.Run(async () => await SendAsync(message));
         }
 
         /// <summary>
@@ -283,6 +288,9 @@ namespace WebSocketCommunication
 
             // Release the send lock.
             _sendLock.Release();
+
+            // Set the Websocket connection state to disconnected.
+            _isConnected = false;
         }
 
         /// <summary>

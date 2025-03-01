@@ -1,6 +1,5 @@
 ﻿using WebSocketException = System.Net.WebSockets.WebSocketException;
 using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
-using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using System.Diagnostics;
 
 namespace WebSocketCommunication
@@ -17,7 +16,7 @@ namespace WebSocketCommunication
         private Uri _serverUrl;
 
         /// <summary>
-        ///
+        /// A semaphore that ensures only one connection attempt is in progress at any given time.
         /// </summary>
         private SemaphoreSlim _connectionLock = new(1, 1);
         #endregion
@@ -51,26 +50,36 @@ namespace WebSocketCommunication
         /// <returns>A task that represents the asynchronous connection operation.</returns>
         private async Task<WebSocketError> ConnectAsync(CancellationToken token)
         {
-            await _connectionLock.WaitAsync();
             try
             {
+                // Try to establish the connection to the WebSocket server using the provided cancellation token.
                 await InnerWebSocket.ConnectAsync(_serverUrl, token);
             }
             catch (OperationCanceledException)
             {
+                // If the connection attempt is canceled (e.g., due to a timeout),
+                // reset the InnerWebSocket instance and return a Timeout error.
                 InnerWebSocket = new SystemClientWebSocket();
                 return WebSocketError.Timeout;
             }
-            catch (WebSocketException exc)
+            catch (WebSocketException webSocketExc)
             {
+                // If a WebSocket-specific exception occurs during the connection attempt,
+                // reset the InnerWebSocket instance and return the error code associated with the exception.
                 InnerWebSocket = new SystemClientWebSocket();
-                return (WebSocketError)exc.WebSocketErrorCode;
+                return (WebSocketError)webSocketExc.ErrorCode;
             }
-            finally
+            catch (Exception exc)
             {
-                _connectionLock.Release();
+                // For any other exception that occurs during the connection attempt,
+                // reset the InnerWebSocket instance, log the exception details,
+                // and return a general NativeError code.
+                InnerWebSocket = new SystemClientWebSocket();
+                Debug.Print($"Exception occurred during connection attempt: {exc.Message}");
+                return WebSocketError.NativeError;
             }
 
+            // If no exceptions occurred, the connection was successful.
             return WebSocketError.Success;
         }
 
@@ -81,49 +90,66 @@ namespace WebSocketCommunication
         /// <returns>A task representing the asynchronous connection attempt.</returns>
         public async Task AttemptConnect(int timeout)
         {
-            // Create connection task
+            // Ensure that the WebSocket is not already connected.
+            if (_isConnected)
+            {
+                throw new InvalidOperationException("Already connected.");
+            }
+
+            // Try to acquire the connection lock immediately to prevent concurrent connection attempts.
+            if (!_connectionLock.Wait(0))
+            {
+                throw new InvalidOperationException("Connection attempt already in progress.");
+            }
+
+            // Create a cancellation token source for the connection attempt.
             CancellationTokenSource connectionTokenSource = new CancellationTokenSource();
+
+            // Begin the asynchronous connection attempt.
             Task<WebSocketError> connectionTask = ConnectAsync(connectionTokenSource.Token);
 
-            // Create timeout task
+            // Create a separate cancellation token source for the timeout delay.
             CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
+
+            // Begin the timeout task.
             Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
 
-            // Race the tasks
-            Debug.Print("Race tasks");
+            // Wait for either the connection attempt or the timeout task to complete.
             Task completedTask = await Task.WhenAny(timeoutTask, connectionTask);
-            Debug.Print("Race finished");
 
+            // If the timeout task completed first, cancel the connection attempt.
+            // Otherwise, cancel the timeout delay task.
             if (completedTask == timeoutTask)
             {
-                Debug.Print("Timeout finished first");
                 connectionTokenSource.Cancel();
             }
             else
             {
-                Debug.Print("Connection finished first");
                 timeoutTokenSource.Cancel();
             }
 
-            Debug.Print("Await connection task");
+            // Release the connection lock regardless of which task completed first.
+            _connectionLock.Release();
+
+            // Retrieve the connection result.
             WebSocketError error = connectionTask.Result;
-            Debug.Print("Connection task finished");
+
+            // Handle the connection result.
             switch (error)
             {
                 case WebSocketError.Success:
+                    // On a successful connection, raise the connected event and begin listening for messages.
                     RaiseConnectedEvent();
                     await ListenAsync();
                     break;
 
-                case WebSocketError.Timeout:
-                    RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.Timeout));
-                    break;
-
                 default:
+                    // On failure, raise a connection failed event with details.
                     RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(error));
                     break;
             }
         }
+
 
         /// <summary>
         /// Initiates a WebSocket connection attempt with the specified timeout.
@@ -132,7 +158,7 @@ namespace WebSocketCommunication
         public void Connect(int timeout)
         {
             // Run the connection attempt asynchronously.
-            Task.Run(() => AttemptConnect(timeout));
+            Task.Run(async () => await AttemptConnect(timeout));
         }
         #endregion
     }

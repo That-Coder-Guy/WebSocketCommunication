@@ -53,6 +53,9 @@ namespace WebSocketCommunication
                 // Accept the incoming WebSocket connection.
                 InnerWebSocket = await _context.WebSockets.AcceptWebSocketAsync();
 
+                // Set the WebSocket connection state to connected.
+                _isConnected = true;
+
                 // Generate a unique identifier using the remote IP, port, and user agent.
                 string? ipAddress = _context.Connection.RemoteIpAddress?.ToString();
                 string port = _context.Connection.RemotePort.ToString();
