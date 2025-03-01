@@ -67,7 +67,7 @@ namespace WebSocketCommunication
                 // If a WebSocket-specific exception occurs during the connection attempt,
                 // reset the InnerWebSocket instance and return the error code associated with the exception.
                 InnerWebSocket = new SystemClientWebSocket();
-                return (WebSocketError)webSocketExc.ErrorCode;
+                return (WebSocketError)webSocketExc.WebSocketErrorCode;
             }
             catch (Exception exc)
             {
@@ -90,64 +90,72 @@ namespace WebSocketCommunication
         /// <returns>A task representing the asynchronous connection attempt.</returns>
         public async Task AttemptConnect(int timeout)
         {
-            // Ensure that the WebSocket is not already connected.
-            if (_isConnected)
+            try
             {
-                throw new InvalidOperationException("Already connected.");
-            }
+                // Ensure that the WebSocket is not already connected.
+                if (_isConnected)
+                {
+                    throw new InvalidOperationException("Already connected.");
+                }
 
-            // Try to acquire the connection lock immediately to prevent concurrent connection attempts.
-            if (!_connectionLock.Wait(0))
+                // Try to acquire the connection lock immediately to prevent concurrent connection attempts.
+                if (!_connectionLock.Wait(0))
+                {
+                    throw new InvalidOperationException("Connection attempt already in progress.");
+                }
+
+                // Create a cancellation token source for the connection attempt.
+                CancellationTokenSource connectionTokenSource = new CancellationTokenSource();
+
+                // Begin the asynchronous connection attempt.
+                Task<WebSocketError> connectionTask = ConnectAsync(connectionTokenSource.Token);
+
+                // Create a separate cancellation token source for the timeout delay.
+                CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
+
+                // Begin the timeout task.
+                Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
+
+                // Wait for either the connection attempt or the timeout task to complete.
+                Task completedTask = await Task.WhenAny(timeoutTask, connectionTask);
+
+                // If the timeout task completed first, cancel the connection attempt.
+                // Otherwise, cancel the timeout delay task.
+                if (completedTask == timeoutTask)
+                {
+                    connectionTokenSource.Cancel();
+                }
+                else
+                {
+                    timeoutTokenSource.Cancel();
+                }
+
+                // Release the connection lock regardless of which task completed first.
+                _connectionLock.Release();
+
+                // Retrieve the connection result.
+                WebSocketError error = connectionTask.Result;
+
+                // Handle the connection result.
+                switch (error)
+                {
+                    case WebSocketError.Success:
+                        // On a successful connection, raise the connected event and begin listening for messages.
+                        RaiseConnectedEvent();
+                        await ListenAsync();
+                        break;
+
+                    default:
+                        // On failure, raise a connection failed event with details.
+                        RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(error));
+                        break;
+                }
+            }
+            catch (Exception e)
             {
-                throw new InvalidOperationException("Connection attempt already in progress.");
+                Debug.Print($"{e.Message}");
             }
-
-            // Create a cancellation token source for the connection attempt.
-            CancellationTokenSource connectionTokenSource = new CancellationTokenSource();
-
-            // Begin the asynchronous connection attempt.
-            Task<WebSocketError> connectionTask = ConnectAsync(connectionTokenSource.Token);
-
-            // Create a separate cancellation token source for the timeout delay.
-            CancellationTokenSource timeoutTokenSource = new CancellationTokenSource();
-
-            // Begin the timeout task.
-            Task timeoutTask = Task.Delay(timeout, timeoutTokenSource.Token);
-
-            // Wait for either the connection attempt or the timeout task to complete.
-            Task completedTask = await Task.WhenAny(timeoutTask, connectionTask);
-
-            // If the timeout task completed first, cancel the connection attempt.
-            // Otherwise, cancel the timeout delay task.
-            if (completedTask == timeoutTask)
-            {
-                connectionTokenSource.Cancel();
-            }
-            else
-            {
-                timeoutTokenSource.Cancel();
-            }
-
-            // Release the connection lock regardless of which task completed first.
-            _connectionLock.Release();
-
-            // Retrieve the connection result.
-            WebSocketError error = connectionTask.Result;
-
-            // Handle the connection result.
-            switch (error)
-            {
-                case WebSocketError.Success:
-                    // On a successful connection, raise the connected event and begin listening for messages.
-                    RaiseConnectedEvent();
-                    await ListenAsync();
-                    break;
-
-                default:
-                    // On failure, raise a connection failed event with details.
-                    RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(error));
-                    break;
-            }
+            
         }
 
 
