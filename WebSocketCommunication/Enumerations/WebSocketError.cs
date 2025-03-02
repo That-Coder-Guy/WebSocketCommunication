@@ -9,7 +9,17 @@
         /// <summary>
         /// Indicates that there was no error.
         /// </summary>
-        Success = -2,
+        Success = -4,
+
+        /// <summary>
+        /// Indicates that the WebSocket is already connected.
+        /// </summary>
+        AlreadyConnected = -3,
+
+        /// <summary>
+        /// Indicates that the WebSocket is already connecting.
+        /// </summary>
+        AlreadyConnecting = -2,
 
         /// <summary>
         /// Indicates that a WebSocket operation timed out.
