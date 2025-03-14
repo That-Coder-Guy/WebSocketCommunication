@@ -173,41 +173,41 @@ namespace WebSocketCommunication
         /// The message is segmented into chunks if its size exceeds the buffer limit.
         /// In case of an error, an emergency disconnect is initiated.
         /// </summary>
-        /// <param name="message">The message data to send as a byte array.</param>
-        internal virtual async Task SendAsync(byte[] message)
+        /// <param name="message">The message data to send as a <see cref="MemoryStream"/>.</param>
+        internal virtual async Task SendAsync(MemoryStream message)
         {
-            // Acquire the lock to ensure exclusive access for sending.
+            // Ensure exclusive access to prevent concurrent sends.
             await _sendLock.WaitAsync();
 
             try
             {
-                // Determine the number of segments required based on the buffer size.
-                int totalChunks = (int)Math.Ceiling((double)message.Length / MESSAGE_BUFFER_SIZE);
+                // Send the message in chunks.
+                byte[] buffer = new byte[MESSAGE_BUFFER_SIZE];
+                int bytesRead;
+                bool endOfMessage;
 
-                for (int i = 0; i < totalChunks; i++)
+                do
                 {
-                    // Calculate the offset and length for the current chunk.
-                    int offset = i * MESSAGE_BUFFER_SIZE;
-                    int length = Math.Min(MESSAGE_BUFFER_SIZE, message.Length - offset);
+                    // Read the next chunk from the stream.
+                    bytesRead = message.Read(buffer, 0, MESSAGE_BUFFER_SIZE);
 
-                    // Create a segment representing the current chunk of data.
-                    ArraySegment<byte> bufferSegment = new ArraySegment<byte>(message, offset, length);
+                    // Determine if this is the final chunk.
+                    endOfMessage = message.Position == message.Length;
 
-                    // Identify if this is the final segment of the message.
-                    bool endOfMessage = (i == totalChunks - 1);
-
-                    // Transmit the current chunk asynchronously.
-                    await InnerWebSocket.SendAsync(bufferSegment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
-                }
+                    // Send the chunk asynchronously.
+                    await InnerWebSocket.SendAsync(buffer.AsMemory(0, bytesRead), WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                } while (!endOfMessage);
             }
             catch (WebSocketException exc)
             {
-                // If an error occurs, initiate an emergency disconnect.
+                // Handle WebSocket errors with an emergency disconnect.
                 await EmergencyDisconnectAsync(exc);
             }
-
-            // Release the send lock after the message has been sent.
-            _sendLock.Release();
+            finally
+            {
+                // Release the lock after sending.
+                _sendLock.Release();
+            }
         }
 
         /// <summary>
@@ -215,6 +215,15 @@ namespace WebSocketCommunication
         /// </summary>
         /// <param name="message">The message data to send as a byte array.</param>
         public virtual void Send(byte[] message)
+        {
+            Task.Run(() => SendAsync(new MemoryStream(message)));
+        }
+
+        /// <summary>
+        /// Initiates the asynchronous sending of a message over the WebSocket connection.
+        /// </summary>
+        /// <param name="message">The message data to send as a <see cref="MemoryStream">.</param>
+        public virtual void Send(MemoryStream message)
         {
             Task.Run(() => SendAsync(message));
         }
@@ -270,7 +279,7 @@ namespace WebSocketCommunication
                             }
 
                             // Notify subscribers that a complete message has been received.
-                            RaiseMessageReceivedEvent(new MessageEventArgs(data));
+                            RaiseMessageReceivedEvent(new MessageEventArgs (data));
                         }
                     }
                 }
