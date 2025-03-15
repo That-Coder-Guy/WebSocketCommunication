@@ -195,7 +195,7 @@ namespace WebSocketCommunication
                     endOfMessage = message.Position == message.Length;
 
                     // Send the chunk asynchronously.
-                    await InnerWebSocket.SendAsync(buffer[..bytesRead], WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                    await InnerWebSocket.SendAsync(buffer.AsMemory(0, bytesRead), WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
                 } while (!endOfMessage);
             }
             catch (WebSocketException exc)
