@@ -71,11 +71,11 @@ namespace WebSocketCommunication.Server
         }
 
         /// <summary>
-        /// Asynchronously broadcasts a message to all active WebSocket connections.
+        /// Asynchronously broadcasts a message to all active WebSocket connections using a MemoryStream.
         /// </summary>
-        /// <param name="message">The message bytes to send.</param>
+        /// <param name="message">A MemoryStream containing the message bytes to send.</param>
         /// <returns>A task representing the asynchronous broadcast operation.</returns>
-        private async Task BroadcastAsync(byte[] message)
+        private async Task BroadcastAsync(MemoryStream message)
         {
             // Collect tasks for sending the message to each connection.
             List<Task> sendTasks = new List<Task>();
@@ -100,13 +100,23 @@ namespace WebSocketCommunication.Server
         }
 
         /// <summary>
-        /// Broadcasts a message to all active WebSocket connections.
+        /// Broadcasts a message to all active WebSocket connections asynchronously using a <see cref="MemoryStream"/>.
+        /// </summary>
+        /// <param name="message">A MemoryStream containing the message bytes to send.</param>
+        public void Broadcast(MemoryStream message)
+        {
+            // Run the asynchronous broadcast operation without awaiting it.
+            Task.Run(() => BroadcastAsync(message));
+        }
+
+        /// <summary>
+        /// Broadcasts a message to all active WebSocket connections asynchronously using a byte array.
         /// </summary>
         /// <param name="message">The message bytes to send.</param>
         public void Broadcast(byte[] message)
         {
             // Run the asynchronous broadcast operation without awaiting it.
-            Task.Run(() => BroadcastAsync(message));
+            Task.Run(() => BroadcastAsync(new MemoryStream(message)));
         }
 
         /// <summary>

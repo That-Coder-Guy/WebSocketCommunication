@@ -1,4 +1,7 @@
-﻿using System.Net.WebSockets;
+﻿using System.Buffers;
+using System.IO.Pipelines;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
@@ -208,6 +211,63 @@ namespace WebSocketCommunication
                 // Release the lock after sending.
                 _sendLock.Release();
             }
+        }
+
+        /// <summary>
+        /// Asynchronously sends data from the provided <see cref="PipeReader"/> over a WebSocket.
+        /// </summary>
+        /// <param name="message">The <see cref="Pipe"/> containing data to be transmitted over the WebSocket.</param>
+        /// <returns>A Task representing the asynchronous send operation.</returns>
+        internal virtual async Task SendAsync(PipeReader reader)
+        {
+            ReadResult result;
+
+            // Flag for the final WebSocket frame.
+            bool endOfMessage = false;
+
+            do
+            {
+                // Read available data from the pipe.
+                result = await reader.ReadAsync();
+
+                // Get the current buffer from the result.
+                ReadOnlySequence<byte> buffer = result.Buffer;
+
+                // Get the total number of bytes in this read.
+                long bytesToRead = buffer.Length;
+
+                if (bytesToRead > 0)
+                {
+                    foreach (ReadOnlyMemory<byte> segment in buffer)
+                    {
+                        if (!segment.IsEmpty)
+                        {
+                            // Decrease remaining bytes count.
+                            bytesToRead -= segment.Length;
+
+                            // Mark final segment if no bytes remain and writer is complete.
+                            endOfMessage = (bytesToRead == 0 && result.IsCompleted);
+
+                            // Send the segment over WebSocket.
+                            await InnerWebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                        }
+                    }
+
+                    // Mark the buffer as consumed.
+                    reader.AdvanceTo(buffer.End);
+                }
+                else if (result.IsCompleted)
+                {
+                    // Set end flag if writer is complete and no data is available.
+                    endOfMessage = true;
+
+                    // Send an empty frame to signal end of message.
+                    await InnerWebSocket.SendAsync(Array.Empty<byte>(), WebSocketMessageType.Binary, true, CancellationToken.None);
+                }
+            } while (!endOfMessage); // Continue until final frame is sent.
+
+            // Complete the reader to free resources.
+            await reader.CompleteAsync();
         }
 
         /// <summary>
