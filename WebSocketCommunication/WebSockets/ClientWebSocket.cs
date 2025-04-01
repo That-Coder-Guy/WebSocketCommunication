@@ -1,6 +1,5 @@
 ﻿using WebSocketException = System.Net.WebSockets.WebSocketException;
 using SystemClientWebSocket = System.Net.WebSockets.ClientWebSocket;
-using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 using System.Diagnostics;
 
 namespace WebSocketCommunication
