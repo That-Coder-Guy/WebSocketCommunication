@@ -125,7 +125,7 @@ namespace WebSocketCommunication.Server
         /// <param name="id">The identifier of the target WebSocket connection.</param>
         /// <param name="message">The message bytes to send.</param>
         /// <returns>A task representing the asynchronous send operation.</returns>
-        private async Task SendToAsync(string id, byte[] message)
+        private async Task SendToAsync(string id, MemoryStream message)
         {
             // Acquire the lock to search the connection collection safely.
             await _webSocketCollectionLock.WaitAsync();
@@ -155,7 +155,7 @@ namespace WebSocketCommunication.Server
         public void SendTo(string id, byte[] message)
         {
             // Initiate the asynchronous send operation without awaiting it.
-            Task.Run(() => SendToAsync(id, message));
+            Task.Run(() => SendToAsync(id, new MemoryStream(message)));
         }
 
         /// <summary>
