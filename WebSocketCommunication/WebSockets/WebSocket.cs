@@ -20,11 +20,6 @@ namespace WebSocketCommunication
         protected Task? _connectionTask;
 
         /// <summary>
-        /// Holds the asynchronous task that listens for incoming messages.
-        /// </summary>
-        private Task? _messageListenerTask;
-
-        /// <summary>
         /// Provides a token to cancel ongoing asynchronous connection operations.
         /// </summary>
         protected CancellationTokenSource _connectionToken = new();
@@ -362,9 +357,6 @@ namespace WebSocketCommunication
 
             // Initiate the closing handshake with a normal closure status.
             await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-
-            // Wait for the message listening task to complete, ensuring the close handshake is acknowledged.
-            await WaitForTaskAsync(_messageListenerTask);
 
             // Release the send lock.
             _sendLock.Release();
