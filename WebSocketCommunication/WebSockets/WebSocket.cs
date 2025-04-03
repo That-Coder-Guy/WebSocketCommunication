@@ -148,8 +148,7 @@ namespace WebSocketCommunication
         /// Asynchronously invokes all subscribers of the MessageReceived event with the provided arguments.
         /// </summary>
         /// <param name="args">The event arguments containing the received message data.</param>
-        protected virtual void RaiseMessageReceivedEvent(MessageEventArgs args) =>
-            Task.Run(() => MessageReceived?.Invoke(this, args));
+        protected virtual void RaiseMessageReceivedEvent(MessageEventArgs args) => MessageReceived?.Invoke(this, args);
 
         /// <summary>
         /// Asynchronously invokes all subscribers of the Disconnected event with the provided arguments.
@@ -331,9 +330,10 @@ namespace WebSocketCommunication
                                 result = await InnerWebSocket.ReceiveAsync(buffer, CancellationToken.None);
                                 data.Write(buffer, 0, result.Count);
                             }
+                            data.Position = 0;
 
                             // Notify subscribers that a complete message has been received.
-                            RaiseMessageReceivedEvent(new MessageEventArgs (data));
+                            RaiseMessageReceivedEvent(new MessageEventArgs(data));
                         }
                     }
                 }
