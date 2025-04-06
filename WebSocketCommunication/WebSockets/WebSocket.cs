@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using System.Threading.Tasks;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
 using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
@@ -97,25 +98,6 @@ namespace WebSocketCommunication
 
                 default:
                     return WebSocketClosureReason.InternalServerError;
-            }
-        }
-
-        /// <summary>
-        /// Determines whether the specified task is currently running.
-        /// </summary>
-        /// <param name="task">The task to evaluate.</param>
-        /// <returns><c>true</c> if the task is running; otherwise, <c>false</c>.</returns>
-        protected virtual bool IsTaskRunning(Task? task) => task != null && task.Status == TaskStatus.Running;
-
-        /// <summary>
-        /// Asynchronously waits for the provided task to complete if it is currently running.
-        /// </summary>
-        /// <param name="task">The task to wait for.</param>
-        protected virtual async Task WaitForTaskAsync(Task? task)
-        {
-            if (task != null && task.Status == TaskStatus.Running)
-            {
-                await task;
             }
         }
 
@@ -315,7 +297,10 @@ namespace WebSocketCommunication
             await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
 
             // Wait for the message listening task to complete, ensuring the close handshake is acknowledged.
-            await WaitForTaskAsync(_messageListenerTask);
+            if (_messageListenerTask != null && _messageListenerTask.Status == TaskStatus.Running)
+            {
+                await _messageListenerTask;
+            }
 
             // Release the send lock.
             _sendLock.Release();
