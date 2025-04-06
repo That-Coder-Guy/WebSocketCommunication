@@ -103,25 +103,6 @@ namespace WebSocketCommunication
         }
 
         /// <summary>
-        /// Determines whether the specified task is currently running.
-        /// </summary>
-        /// <param name="task">The task to evaluate.</param>
-        /// <returns><c>true</c> if the task is running; otherwise, <c>false</c>.</returns>
-        protected virtual bool IsTaskRunning(Task? task) => task != null && task.Status == TaskStatus.Running;
-
-        /// <summary>
-        /// Asynchronously waits for the provided task to complete if it is currently running.
-        /// </summary>
-        /// <param name="task">The task to wait for.</param>
-        protected virtual async Task WaitForTaskAsync(Task? task)
-        {
-            if (task != null && task.Status == TaskStatus.Running)
-            {
-                await task;
-            }
-        }
-
-        /// <summary>
         /// Handles a WebSocketException by attempting an immediate disconnection.
         /// Logs the exception message, performs the closing handshake if necessary, 
         /// and raises the Disconnected event with the appropriate closure reason.
