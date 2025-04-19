@@ -93,6 +93,14 @@ namespace WebSocketCommunication
         /// <returns>A task representing the asynchronous connection attempt.</returns>
         public async Task AttemptConnectAsync(int timeout)
         {
+            // Check if the WebSocket is closed .
+            // If it is, then we don't need to attempt another connection.
+            if (_isClosed)
+            {
+                RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.InvalidState));
+                return;
+            }
+
             // Check if the WebSocket is already connected.
             // If it is, then we don't need to attempt another connection.
             if (_isConnected)

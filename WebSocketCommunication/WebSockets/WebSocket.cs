@@ -68,6 +68,11 @@ namespace WebSocketCommunication
         /// Represents whether the WebSocket is connected.
         /// </summary>
         public virtual bool IsConnected => _isConnected;
+
+        /// <summary>
+        /// Represents whether the WebSocket is closed.
+        /// </summary>
+        protected volatile bool _isClosed = false;
         #endregion
 
         #region Methods
