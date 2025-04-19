@@ -64,7 +64,7 @@ namespace WebSocketCommunication.Server
         /// <param name="e">Event data containing details about the connection event.</param>
         protected virtual void OnConnected(object? sender, EventArgs e)
         {
-            Debug.Print($"Client [{Id}] connected.");
+            Debug.Print($"[Client : {Id[..10]}...] Connected.");
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace WebSocketCommunication.Server
         /// <param name="e">Event data with details about the failure.</param>
         protected virtual void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e)
         {
-            Debug.Print($"A client attempted to connect but failed.");
+            Debug.Print($"A client attempted to connect but failed ({e.Error}).");
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace WebSocketCommunication.Server
         /// <param name="e">Event data containing the message details.</param>
         protected virtual void OnMessageReceived(object? sender, MessageEventArgs e)
         {
-            Debug.Print($"A {e.Data.Length} byte message was received from cleint [{Id}].");
+            Debug.Print($"[Client : {Id[..10]}...] Sent a {e.Data.Length} byte message.");
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace WebSocketCommunication.Server
         /// <param name="e">Event data containing details about the disconnection.</param>
         protected virtual void OnDisconnected(object? sender, DisconnectEventArgs e)
         {
-            Debug.Print($"Client [{Id}] disconnected.");
+            Debug.Print($"[Client : {Id[..10]}...] Disconnected ({e.Reason}).");
         }
     }
 }

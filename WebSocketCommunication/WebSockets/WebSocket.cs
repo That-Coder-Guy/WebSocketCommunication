@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.WebSockets;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
@@ -110,7 +111,7 @@ namespace WebSocketCommunication
         /// <param name="exc">The WebSocketException that triggered the disconnect.</param>
         protected virtual async Task EmergencyDisconnectAsync(WebSocketException exc)
         {
-            if (InnerWebSocket.State != SystemWebSocketState.Closed)
+            if (InnerWebSocket.State == SystemWebSocketState.Open)
             {
                 // Attempt to close the output channel using an error status.
                 await InnerWebSocket.CloseOutputAsync(WebSocketCloseStatus.InternalServerError, exc.Message, CancellationToken.None);
@@ -321,6 +322,7 @@ namespace WebSocketCommunication
             }
             catch (WebSocketException exc)
             {
+                Debug.Print("(The above debug message indicates a unexpected disconnection)");
                 // On error, perform an emergency disconnect.
                 await EmergencyDisconnectAsync(exc);
             }

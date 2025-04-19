@@ -59,6 +59,7 @@ namespace WebSocketCommunication
             }
             catch (OperationCanceledException)
             {
+                Debug.Print("(The above debug message indicates a timed out connection attempt)");
                 // If the connection attempt is canceled (e.g., due to a timeout),
                 // reset the InnerWebSocket instance and return a Timeout error.
                 InnerWebSocket = new SystemClientWebSocket();
@@ -66,6 +67,7 @@ namespace WebSocketCommunication
             }
             catch (WebSocketException webSocketExc)
             {
+                Debug.Print("(The above debug message indicates a failed connection attempt)");
                 // If a WebSocket-specific exception occurs during the connection attempt,
                 // reset the InnerWebSocket instance and return the error code associated with the exception.
                 InnerWebSocket = new SystemClientWebSocket();
@@ -77,10 +79,9 @@ namespace WebSocketCommunication
                 // reset the InnerWebSocket instance, log the exception details,
                 // and return a general NativeError code.
                 InnerWebSocket = new SystemClientWebSocket();
-                Debug.Print($"Exception occurred during connection attempt: {exc.Message}");
+                Debug.Print($"Irragulare exception caught during connection attempt: {exc.Message}");
                 return WebSocketError.NativeError;
             }
-
             // If no exceptions occurred, the connection was successful.
             return WebSocketError.Success;
         }
@@ -90,12 +91,13 @@ namespace WebSocketCommunication
         /// </summary>
         /// <param name="timeout">The maximum time (in milliseconds) allowed for the connection attempt.</param>
         /// <returns>A task representing the asynchronous connection attempt.</returns>
-        public async Task AttemptConnect(int timeout)
+        public async Task AttemptConnectAsync(int timeout)
         {
             // Check if the WebSocket is already connected.
             // If it is, then we don't need to attempt another connection.
             if (_isConnected)
             {
+                Debug.Print("Failed during connection process because client is already connected.");
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.AlreadyConnected));
                 return;
             }
@@ -104,6 +106,7 @@ namespace WebSocketCommunication
             // If the lock isn't available, it means there's an active connection attempt already in progress.
             if (!_connectionLock.Wait(0))
             {
+                Debug.Print("Failed during connection process because the connection lock was taken.");
                 RaiseConnectionFailedEvent(new ConnectionFailedEventArgs(WebSocketError.AlreadyConnecting));
                 return;
             }
@@ -163,7 +166,7 @@ namespace WebSocketCommunication
         public void Connect(int timeout)
         {
             // Run the connection attempt asynchronously.
-            Task.Run(() => AttemptConnect(timeout));
+            Task.Run(() => AttemptConnectAsync(timeout));
         }
         #endregion
     }
