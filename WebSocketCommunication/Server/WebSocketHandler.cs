@@ -1,4 +1,6 @@
-﻿namespace WebSocketCommunication.Server
+﻿using System.Diagnostics;
+
+namespace WebSocketCommunication.Server
 {
     /// <summary>
     /// Serves as the abstract base for handling WebSocket connection events in server applications.
@@ -9,6 +11,11 @@
         /// The active WebSocket connection that this handler manages.
         /// </summary>
         private ServerWebSocket? _webSocket;
+
+        /// <summary>
+        /// Gets the unique identifier for this WebSocket connection.
+        /// </summary>
+        protected string Id => _webSocket?.Id ?? string.Empty;
 
         /// <summary>
         /// The manager responsible for tracking all active WebSocket connections on the server.
@@ -32,12 +39,33 @@
         }
 
         /// <summary>
+        /// Sends a binary message to the connected WebSocket client.
+        /// </summary>
+        /// <param name="message">The message to send, provided as a <see cref="MemoryStream"/>.</param>
+        protected void Send(MemoryStream message)
+        {
+            _webSocket?.Send(message);
+        }
+
+        /// <summary>
+        /// Sends a binary message to the connected WebSocket client.
+        /// </summary>
+        /// <param name="message">The message to send, provided as a byte array.</param>
+        protected void Send(byte[] message)
+        {
+            _webSocket?.Send(message);
+        }
+
+        /// <summary>
         /// Invoked when the WebSocket connection is successfully established.
         /// Override this method to implement custom connection logic.
         /// </summary>
         /// <param name="sender">The source that raised the connection event.</param>
         /// <param name="e">Event data containing details about the connection event.</param>
-        protected abstract void OnConnected(object? sender, EventArgs e);
+        protected virtual void OnConnected(object? sender, EventArgs e)
+        {
+            Debug.Print($"Client [{Id}] connected.");
+        }
 
         /// <summary>
         /// Invoked when the WebSocket connection attempt fails.
@@ -45,7 +73,10 @@
         /// </summary>
         /// <param name="sender">The source that raised the connection failure event.</param>
         /// <param name="e">Event data with details about the failure.</param>
-        protected abstract void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e);
+        protected virtual void OnConnectionFailed(object? sender, ConnectionFailedEventArgs e)
+        {
+            Debug.Print($"A client attempted to connect but failed.");
+        }
 
         /// <summary>
         /// Invoked when a message is received over the WebSocket connection.
@@ -53,7 +84,10 @@
         /// </summary>
         /// <param name="sender">The source that raised the message event.</param>
         /// <param name="e">Event data containing the message details.</param>
-        protected abstract void OnMessageReceived(object? sender, MessageEventArgs e);
+        protected virtual void OnMessageReceived(object? sender, MessageEventArgs e)
+        {
+            Debug.Print($"A {e.Data.Length} byte message was received from cleint [{Id}].");
+        }
 
         /// <summary>
         /// Invoked when the WebSocket connection is terminated or disconnected.
@@ -61,6 +95,9 @@
         /// </summary>
         /// <param name="sender">The source that raised the disconnection event.</param>
         /// <param name="e">Event data containing details about the disconnection.</param>
-        protected abstract void OnDisconnected(object? sender, DisconnectEventArgs e);
+        protected virtual void OnDisconnected(object? sender, DisconnectEventArgs e)
+        {
+            Debug.Print($"Client [{Id}] disconnected.");
+        }
     }
 }
