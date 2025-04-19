@@ -353,7 +353,7 @@ namespace WebSocketCommunication
         /// </summary>
         public virtual void Disconnect()
         {
-            DisconnectAsync().Wait();
+            DisconnectAsync().GetAwaiter().GetResult();
         }
         #endregion
     }

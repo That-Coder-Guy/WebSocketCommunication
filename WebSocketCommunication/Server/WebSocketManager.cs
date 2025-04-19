@@ -162,7 +162,7 @@ namespace WebSocketCommunication.Server
         /// Asynchronously disconnects all active WebSocket connections.
         /// </summary>
         /// <returns>A task representing the asynchronous disconnect operations.</returns>
-        private async Task DisconnectAllAsync()
+        internal async Task DisconnectAllAsync()
         {
             // Gather tasks for disconnecting each connection.
             List<Task> disconnectTasks = new List<Task>();

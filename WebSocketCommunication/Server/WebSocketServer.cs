@@ -132,6 +132,7 @@ namespace WebSocketCommunication.Server
         /// </summary>
         private async Task StopAsync()
         {
+            await _connections.DisconnectAllAsync();
             await _application.StopAsync();
         }
 
