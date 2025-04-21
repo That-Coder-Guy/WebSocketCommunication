@@ -72,22 +72,36 @@ namespace WebSocketCommunication.Server
         public WebSocketServer(ushort port) : this("localhost", port) { }
 
         /// <summary>
-        /// Registers a WebSocket service endpoint with a specific WebSocket handler.
+        /// Registers a WebSocket service at the specified endpoint using a default-constructed handler.
         /// </summary>
-        /// <typeparam name="TWebSocketHandler">The type of the WebSocket handler to manage connections.</typeparam>
-        /// <param name="endpoint">The URL endpoint for the WebSocket service.</param>
+        /// <typeparam name="TWebSocketHandler">The type of WebSocket handler.</typeparam>
+        /// <param name="endpoint">The URL path at which to expose the WebSocket service.</param>
         public void AddService<TWebSocketHandler>(string endpoint) where TWebSocketHandler : WebSocketHandler
         {
-            // Map incoming requests on the specified endpoint to the generic WebSocket request handler.
-            _application.Map(endpoint, DirectWebSocketRequest<TWebSocketHandler>);
+            // Registers a WebSocket handler for the specified endpoint using the default constructor.
+            AddService(endpoint, Activator.CreateInstance<TWebSocketHandler>);
         }
 
         /// <summary>
-        /// Processes incoming HTTP requests and upgrades them to WebSocket connections if valid.
+        /// Registers a WebSocket service at the specified endpoint using a factory to create the handler.
         /// </summary>
-        /// <typeparam name="TWebSocketHandler">The type of WebSocket handler to instantiate.</typeparam>
+        /// <typeparam name="TWebSocketHandler">The type of WebSocket handler.</typeparam>
+        /// <param name="endpoint">The URL path at which to expose the WebSocket service.</param>
+        /// <param name="factory">A factory function to create instances of the WebSocket handler.</param>
+        public void AddService<TWebSocketHandler>(string endpoint, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
+        {
+            // Maps the specified endpoint to the request handling function for incoming WebSocket connections.
+            _application.Map(endpoint, (HttpContext context) => DirectWebSocketRequest(context, factory));
+        }
+
+        /// <summary>
+        /// Handles a WebSocket request by creating a handler, accepting the connection, and attaching it.
+        /// </summary>
+        /// <typeparam name="TWebSocketHandler">The type of WebSocket handler to use.</typeparam>
         /// <param name="context">The HTTP context of the incoming request.</param>
-        private async Task DirectWebSocketRequest<TWebSocketHandler>(HttpContext context) where TWebSocketHandler : WebSocketHandler
+        /// <param name="factory">A factory function to create the handler.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task DirectWebSocketRequest<TWebSocketHandler>(HttpContext context, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
         {
             // Check if the request is intended for WebSocket communication.
             if (!context.WebSockets.IsWebSocketRequest)
@@ -97,8 +111,8 @@ namespace WebSocketCommunication.Server
             }
             else
             {
-                // Dynamically create an instance of the specified WebSocket handler.
-                WebSocketHandler handler = Activator.CreateInstance<TWebSocketHandler>();
+                // Create a new instance of the handler using the provided factory.
+                WebSocketHandler handler = factory.Invoke();
 
                 // Establish a new WebSocket connection and add it to the connection manager.
                 ServerWebSocket webSocket = await _connections.Add(context);
