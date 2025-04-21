@@ -91,7 +91,7 @@ namespace WebSocketCommunication.Server
         public void AddService<TWebSocketHandler>(string endpoint, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
         {
             // Maps the specified endpoint to the request handling function for incoming WebSocket connections.
-            _application.Map(endpoint, (HttpContext context) => DirectWebSocketRequest(context, factory));
+            _application.Map(endpoint, (HttpContext context) => HandleWebSocketRequest(context, factory));
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace WebSocketCommunication.Server
         /// <param name="context">The HTTP context of the incoming request.</param>
         /// <param name="factory">A factory function to create the handler.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private async Task DirectWebSocketRequest<TWebSocketHandler>(HttpContext context, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
+        private async Task HandleWebSocketRequest<TWebSocketHandler>(HttpContext context, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
         {
             // Check if the request is intended for WebSocket communication.
             if (!context.WebSockets.IsWebSocketRequest)
