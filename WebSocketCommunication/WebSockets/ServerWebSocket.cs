@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Net.WebSockets;
 using System.Text;
 using SystemWebSocket = System.Net.WebSockets.WebSocket;
+using System.Net;
 
 namespace WebSocketCommunication
 {

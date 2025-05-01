@@ -47,6 +47,8 @@ namespace WebSocketCommunication.Server
             // Configure the web host to listen on the specified URL and port.
             builder.WebHost.UseUrls($"http://{rootUrl}:{port}");
 
+            //builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Any, 5000));
+
             // Remove default logging providers for custom logging configuration.
             builder.Logging.ClearProviders();
 
@@ -104,13 +106,9 @@ namespace WebSocketCommunication.Server
         private async Task HandleWebSocketRequest<TWebSocketHandler>(HttpContext context, Func<TWebSocketHandler> factory) where TWebSocketHandler : WebSocketHandler
         {
             // Check if the request is intended for WebSocket communication.
-            if (!context.WebSockets.IsWebSocketRequest)
+            if (context.WebSockets.IsWebSocketRequest)
             {
-                // Reject non-WebSocket requests by setting the status to "Method Not Allowed".
-                context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-            }
-            else
-            {
+                Console.WriteLine($"Client IP: {context.Connection.RemoteIpAddress}:{context.Connection.RemotePort}");
                 // Create a new instance of the handler using the provided factory.
                 WebSocketHandler handler = factory.Invoke();
 
@@ -122,6 +120,11 @@ namespace WebSocketCommunication.Server
 
                 // Complete the WebSocket handshake and start communication.
                 await webSocket.AcceptConnectionAsync();
+            }
+            else
+            {
+                // Reject non-WebSocket requests by setting the status to "Method Not Allowed".
+                context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
             }
         }
 

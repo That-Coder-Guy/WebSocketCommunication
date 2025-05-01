@@ -7,7 +7,7 @@ using SystemWebSocketState = System.Net.WebSockets.WebSocketState;
 
 namespace WebSocketCommunication
 {
-    internal abstract class WebSocket<TSource> where TSource : SystemWebSocket
+    public abstract class WebSocket<TSource> where TSource : SystemWebSocket
     {
         #region Fields
         /// <summary>

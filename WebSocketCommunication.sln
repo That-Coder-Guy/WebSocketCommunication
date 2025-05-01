@@ -5,6 +5,10 @@ VisualStudioVersion = 17.10.35122.118
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSocketCommunication", "WebSocketCommunication\WebSocketCommunication.csproj", "{BAD0145E-577E-4A3E-A8E5-5AEA6EECCAFE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csproj", "{C35070EB-666B-4D9B-9B96-51149191CC43}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{CDB8ED15-EE77-442F-AC13-9B39F521BCEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{BAD0145E-577E-4A3E-A8E5-5AEA6EECCAFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BAD0145E-577E-4A3E-A8E5-5AEA6EECCAFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BAD0145E-577E-4A3E-A8E5-5AEA6EECCAFE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C35070EB-666B-4D9B-9B96-51149191CC43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C35070EB-666B-4D9B-9B96-51149191CC43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C35070EB-666B-4D9B-9B96-51149191CC43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C35070EB-666B-4D9B-9B96-51149191CC43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDB8ED15-EE77-442F-AC13-9B39F521BCEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CDB8ED15-EE77-442F-AC13-9B39F521BCEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CDB8ED15-EE77-442F-AC13-9B39F521BCEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CDB8ED15-EE77-442F-AC13-9B39F521BCEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
